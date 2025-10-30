@@ -1,11 +1,10 @@
-<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ponto Eletrônico - Firebase com Pesquisa e Cargo</title>
+<title>Ponto Eletrônico - Estilizado</title>
 <style>
-:root{--blue:#003366;--green:#4CAF50;--yellow:#ff9800;--red:#f44336;}
+:root{--blue:#003366;--green:#4CAF50;--red:#f44336;--yellow:#ff9800;--gray:#555;}
 body{font-family:Arial,Helvetica,sans-serif;background:#f7f9fc;margin:0}
 header{background:var(--blue);color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .logo{font-weight:700}
@@ -16,6 +15,7 @@ button{padding:8px 12px;border:none;border-radius:6px;cursor:pointer;font-weight
 .secondary{background:#e0e0e0;color:#222}
 .download{background:var(--yellow);color:#111}
 .del{background:var(--red);color:#fff}
+.main-add{margin-bottom:12px}
 main{padding:18px;max-width:1100px;margin:18px auto}
 .search{width:100%;padding:8px;border-radius:6px;border:1px solid #ccc;margin-bottom:12px}
 table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.06)}
@@ -24,15 +24,12 @@ th{background:#fafafa;font-weight:700}
 tr:hover td{background:#fbfbfb}
 .small{font-size:13px;color:#666;margin-left:6px}
 .muted{color:#666;font-size:13px}
-.flex-row{display:flex;gap:8px;align-items:center}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:999}
 .modal-content{background:#fff;padding:20px;border-radius:10px;width:95%;max-width:420px}
 .hidden{display:none}
 .top-right{display:flex;gap:8px;align-items:center}
 @media(max-width:720px){ header{flex-direction:column;align-items:flex-start} .controls{width:100%;justify-content:space-between} }
 </style>
-
-<!-- SheetJS para Excel -->
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -67,7 +64,7 @@ tr:hover td{background:#fbfbfb}
   <input id="search" class="search" placeholder="🔍 Pesquisar colaborador por nome, cargo, matrícula ou e-mail">
 
   <h3>Colaboradores</h3>
-  <button class="add" id="addColabBtn">Adicionar Colaborador</button>
+  <button class="add main-add" id="addColabBtn">Adicionar Colaborador</button>
 
   <table id="colabTable">
     <thead>
@@ -126,233 +123,136 @@ const firebaseConfig = {
   messagingSenderId: "208638350255",
   appId: "1:208638350255:web:63d016867a67575b5e155a"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-let colaboradores = [];
-let pontos = [];
-let colabEmEdicao = null;
+let colaboradores=[], pontos=[], colabEmEdicao=null;
 
 /* LOGIN */
-const loginScreen = document.getElementById('loginScreen');
-const mainApp = document.getElementById('mainApp');
-document.getElementById('loginBtn').onclick = async () => {
-  const u = document.getElementById('user').value.trim();
-  const p = document.getElementById('pass').value.trim();
-  if (u === 'CLX' && p === '02072007') {
-    loginScreen.style.display = 'none';
+const loginScreen=document.getElementById('loginScreen');
+const mainApp=document.getElementById('mainApp');
+document.getElementById('loginBtn').onclick=async()=>{
+  const u=document.getElementById('user').value.trim();
+  const p=document.getElementById('pass').value.trim();
+  if(u==='CLX'&&p==='02072007'){
+    loginScreen.style.display='none';
     mainApp.classList.remove('hidden');
-    if (document.getElementById('remember').checked)
-      localStorage.setItem('autenticado', '1');
+    if(document.getElementById('remember').checked) localStorage.setItem('autenticado','1');
     await carregarFirebase();
-  } else {
-    document.getElementById('loginMsg').textContent = 'Usuário ou senha incorretos.';
-  }
+  }else document.getElementById('loginMsg').textContent='Usuário ou senha incorretos.';
 };
-if (localStorage.getItem('autenticado') === '1') {
-  loginScreen.style.display = 'none';
-  mainApp.classList.remove('hidden');
-  carregarFirebase();
-}
-document.getElementById('logoutBtn').onclick = () => {
-  localStorage.removeItem('autenticado');
-  location.reload();
-};
+if(localStorage.getItem('autenticado')==='1'){loginScreen.style.display='none';mainApp.classList.remove('hidden');carregarFirebase();}
+document.getElementById('logoutBtn').onclick=()=>{localStorage.removeItem('autenticado');location.reload();};
 
 /* RELÓGIO */
-setInterval(() => {
-  document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR', { hour12: false });
-}, 1000);
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('pt-BR',{hour12:false});},1000);
 
 /* FIREBASE */
-async function carregarFirebase() {
-  const colabs = await getDocs(collection(db, "colaboradores"));
-  colaboradores = colabs.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  const pts = await getDocs(collection(db, "pontos"));
-  pontos = pts.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  document.getElementById('status').textContent = "Online • Firebase";
+async function carregarFirebase(){
+  const colabs=await getDocs(collection(db,"colaboradores"));
+  colaboradores=colabs.docs.map(doc=>({id:doc.id,...doc.data()}));
+  const pts=await getDocs(collection(db,"pontos"));
+  pontos=pts.docs.map(doc=>({id:doc.id,...doc.data()}));
+  document.getElementById('status').textContent="Online • Firebase";
   renderAll();
 }
 
-function renderAll() {
-  renderColaboradores();
-  renderEntradasSaidas();
-  calcularHoras();
-}
+function renderAll(){renderColaboradores();renderEntradasSaidas();calcularHoras();}
 
 /* PESQUISA */
-const searchInput = document.getElementById('search');
-searchInput.addEventListener('input', () => renderColaboradores(searchInput.value.toLowerCase()));
+document.getElementById('search').addEventListener('input',()=>renderColaboradores(document.getElementById('search').value.toLowerCase()));
 
-/* RENDERIZAÇÃO DE COLABORADORES */
-function renderColaboradores(filtro = '') {
-  const body = document.getElementById('colabBody');
-  body.innerHTML = '';
-
-  colaboradores
-    .filter(c =>
-      c.nome?.toLowerCase().includes(filtro) ||
-      c.cargo?.toLowerCase().includes(filtro) ||
-      c.matricula?.toLowerCase().includes(filtro) ||
-      c.email?.toLowerCase().includes(filtro)
-    )
-    .forEach((c, i) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${i + 1}</td>
-        <td>${c.id}</td>
-        <td>${c.nome}</td>
-        <td>${c.cargo || '—'}</td>
-        <td>${c.matricula || ''} <span class="small">${c.email || ''}</span></td>
-        <td>${c.turno || ''}</td>
-        <td>
-          <button class="add">Entrada</button>
-          <button class="btnSaida secondary">Saída</button>
-          <button class="editBtn secondary">Editar</button>
-          <button class="del">Excluir</button>
-        </td>`;
-
-      tr.querySelector('.add').onclick = () => registrarPonto(c.id, 'Entrada');
-      tr.querySelector('.btnSaida').onclick = () => registrarPonto(c.id, 'Saída');
-      tr.querySelector('.editBtn').onclick = () => abrirEdicao(c);
-      tr.querySelector('.del').onclick = () => removerColab(c.id);
-
-      body.appendChild(tr);
-    });
+function renderColaboradores(filtro=''){
+  const body=document.getElementById('colabBody');body.innerHTML='';
+  colaboradores.filter(c=>
+    c.nome?.toLowerCase().includes(filtro)||
+    c.cargo?.toLowerCase().includes(filtro)||
+    c.matricula?.toLowerCase().includes(filtro)||
+    c.email?.toLowerCase().includes(filtro)
+  ).forEach((c,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${i+1}</td><td>${c.id}</td><td>${c.nome}</td><td>${c.cargo||'—'}</td><td>${c.matricula||''} <span class="small">${c.email||''}</span></td><td>${c.turno||''}</td>
+    <td>
+      <button class="add">Entrada</button>
+      <button class="del" style="background:${red}">Saída</button>
+      <button class="secondary editBtn">Editar</button>
+      <button class="del">Excluir</button>
+    </td>`;
+    tr.querySelector('.add').onclick=()=>registrarPonto(c.id,'Entrada');
+    tr.querySelectorAll('button')[1].onclick=()=>registrarPonto(c.id,'Saída');
+    tr.querySelector('.editBtn').onclick=()=>abrirEdicao(c);
+    tr.querySelectorAll('.del')[1].onclick=()=>removerColab(c.id);
+    body.appendChild(tr);
+  });
 }
 
 /* MODAL DE EDIÇÃO */
-const editModal = document.getElementById('editModal');
-const editNome = document.getElementById('editNome');
-const editCargo = document.getElementById('editCargo');
-const editMatricula = document.getElementById('editMatricula');
-const editEmail = document.getElementById('editEmail');
-const editTurno = document.getElementById('editTurno');
-
-function abrirEdicao(c) {
-  colabEmEdicao = c;
-  editNome.value = c.nome || '';
-  editCargo.value = c.cargo || '';
-  editMatricula.value = c.matricula || '';
-  editEmail.value = c.email || '';
-  editTurno.value = c.turno || '';
-  editModal.classList.remove('hidden');
-}
-
-document.getElementById('cancelEdit').onclick = () => editModal.classList.add('hidden');
-document.getElementById('saveEdit').onclick = async () => {
-  if (!colabEmEdicao) return;
-  colabEmEdicao.nome = editNome.value.trim();
-  colabEmEdicao.cargo = editCargo.value.trim();
-  colabEmEdicao.matricula = editMatricula.value.trim();
-  colabEmEdicao.email = editEmail.value.trim();
-  colabEmEdicao.turno = editTurno.value.trim();
-  await setDoc(doc(db, "colaboradores", colabEmEdicao.id), colabEmEdicao);
-  renderColaboradores();
-  editModal.classList.add('hidden');
+const editModal=document.getElementById('editModal');
+const editNome=document.getElementById('editNome');
+const editCargo=document.getElementById('editCargo');
+const editMatricula=document.getElementById('editMatricula');
+const editEmail=document.getElementById('editEmail');
+const editTurno=document.getElementById('editTurno');
+function abrirEdicao(c){colabEmEdicao=c;editNome.value=c.nome||'';editCargo.value=c.cargo||'';editMatricula.value=c.matricula||'';editEmail.value=c.email||'';editTurno.value=c.turno||'';editModal.classList.remove('hidden');}
+document.getElementById('cancelEdit').onclick=()=>editModal.classList.add('hidden');
+document.getElementById('saveEdit').onclick=async()=>{
+  if(!colabEmEdicao)return;
+  colabEmEdicao.nome=editNome.value.trim();
+  colabEmEdicao.cargo=editCargo.value.trim();
+  colabEmEdicao.matricula=editMatricula.value.trim();
+  colabEmEdicao.email=editEmail.value.trim();
+  colabEmEdicao.turno=editTurno.value.trim();
+  await setDoc(doc(db,"colaboradores",colabEmEdicao.id),colabEmEdicao);
+  renderColaboradores();editModal.classList.add('hidden');
 };
 
-/* REGISTRAR PONTOS */
-async function registrarPonto(idColab, tipo) {
-  const c = colaboradores.find(x => x.id === idColab);
-  if (!c) return alert("Colaborador não encontrado!");
-  const now = new Date();
-  const p = {
-    id: Date.now().toString(),
-    idColab,
-    nome: c.nome,
-    matricula: c.matricula,
-    email: c.email,
-    tipo,
-    data: now.toLocaleDateString('pt-BR'),
-    hora: now.toLocaleTimeString('pt-BR', { hour12: false }),
-    horarioISO: now.toISOString()
-  };
-  pontos.push(p);
-  renderEntradasSaidas();
-  await setDoc(doc(db, "pontos", p.id), p);
+/* PONTOS */
+async function registrarPonto(idColab,tipo){
+  const c=colaboradores.find(x=>x.id===idColab);
+  if(!c)return alert("Colaborador não encontrado!");
+  const now=new Date();
+  const p={id:Date.now().toString(),idColab,nome:c.nome,matricula:c.matricula,email:c.email,tipo,data:now.toLocaleDateString('pt-BR'),hora:now.toLocaleTimeString('pt-BR',{hour12:false}),horarioISO:now.toISOString()};
+  pontos.push(p);renderEntradasSaidas();
+  await setDoc(doc(db,"pontos",p.id),p);
 }
 
-/* RENDER ENTRADAS / SAÍDAS */
-function renderEntradasSaidas() {
-  const entBody = document.getElementById('entradasBody');
-  const saiBody = document.getElementById('saidasBody');
-  entBody.innerHTML = '';
-  saiBody.innerHTML = '';
-
-  pontos.filter(p => p.tipo === 'Entrada').forEach((p,i)=>{
+function renderEntradasSaidas(){
+  const entBody=document.getElementById('entradasBody');
+  const saiBody=document.getElementById('saidasBody');
+  entBody.innerHTML='';saiBody.innerHTML='';
+  pontos.filter(p=>p.tipo==='Entrada').forEach((p,i)=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`<td>${i+1}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="del">Excluir</button></td>`;
-    tr.querySelector('.del').onclick = () => excluirPonto(p.id);
+    tr.querySelector('.del').onclick=()=>excluirPonto(p.id);
     entBody.appendChild(tr);
   });
-
-  pontos.filter(p => p.tipo === 'Saída').forEach((p,i)=>{
+  pontos.filter(p=>p.tipo==='Saída').forEach((p,i)=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`<td>${i+1}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="del">Excluir</button></td>`;
-    tr.querySelector('.del').onclick = () => excluirPonto(p.id);
+    tr.querySelector('.del').onclick=()=>excluirPonto(p.id);
     saiBody.appendChild(tr);
   });
-
   calcularHoras();
 }
 
-/* EXCLUIR PONTO */
-async function excluirPonto(id) {
-  if(confirm("Excluir este ponto permanentemente?")){
-    pontos = pontos.filter(p=>p.id!==id);
-    renderEntradasSaidas();
-    await deleteDoc(doc(db,"pontos",id));
-  }
-}
+async function excluirPonto(id){if(confirm("Excluir este ponto permanentemente?")){pontos=pontos.filter(p=>p.id!==id);renderEntradasSaidas();await deleteDoc(doc(db,"pontos",id));}}
+async function removerColab(id){if(confirm("Excluir colaborador permanentemente?")){colaboradores=colaboradores.filter(c=>c.id!==id);pontos=pontos.filter(p=>p.idColab!==id);renderAll();await deleteDoc(doc(db,"colaboradores",id));}}
 
-/* REMOVER COLABORADOR */
-async function removerColab(id) {
-  if(confirm("Excluir colaborador permanentemente?")){
-    colaboradores = colaboradores.filter(c=>c.id!==id);
-    pontos = pontos.filter(p=>p.idColab!==id);
-    renderAll();
-    await deleteDoc(doc(db,"colaboradores",id));
-  }
-}
+document.getElementById('limparTodosBtn').onclick=async()=>{if(confirm("Deseja realmente excluir todos os pontos?")){pontos=[];renderEntradasSaidas();const col=await getDocs(collection(db,"pontos"));for(let docSnap of col.docs){await deleteDoc(doc(db,"pontos",docSnap.id));}}}
 
-/* LIMPAR TODOS OS PONTOS */
-document.getElementById('limparTodosBtn').onclick=async()=>{
-  if(confirm("Deseja realmente excluir todos os pontos?")){
-    pontos=[];
-    renderEntradasSaidas();
-    const col=await getDocs(collection(db,"pontos"));
-    for(let docSnap of col.docs){
-      await deleteDoc(doc(db,"pontos",docSnap.id));
-    }
-  }
-};
-
-/* CALCULAR HORAS */
-function calcularHoras() {
-  const horasBody = document.getElementById('horasBody');
-  const totalHorasCell = document.getElementById('totalHoras');
-  horasBody.innerHTML='';
-  let dados={}, totalGeral=0;
-
-  pontos.forEach(p=>{
-    if(!dados[p.nome]) dados[p.nome]={};
-    if(!dados[p.nome][p.data]) dados[p.nome][p.data]=[];
-    dados[p.nome][p.data].push(p);
-  });
-
+function calcularHoras(){
+  const horasBody=document.getElementById('horasBody');
+  const totalHorasCell=document.getElementById('totalHoras');
+  horasBody.innerHTML='';let dados={},totalGeral=0;
+  pontos.forEach(p=>{if(!dados[p.nome])dados[p.nome]={};if(!dados[p.nome][p.data])dados[p.nome][p.data]=[];dados[p.nome][p.data].push(p);});
   Object.keys(dados).forEach(nome=>{
     Object.keys(dados[nome]).forEach(data=>{
       let reg=dados[nome][data].sort((a,b)=>new Date(a.horarioISO)-new Date(b.horarioISO));
       let entrada=null,total=0;
       reg.forEach(r=>{
         const hora=new Date(r.horarioISO);
-        if(r.tipo==='Entrada') entrada=hora;
-        if(r.tipo==='Saída' && entrada){
-          total+=(hora-entrada)/3600000;
-          entrada=null;
-        }
+        if(r.tipo==='Entrada')entrada=hora;
+        if(r.tipo==='Saída'&&entrada){total+=(hora-entrada)/3600000;entrada=null;}
       });
       totalGeral+=total;
       const tr=document.createElement('tr');
@@ -363,7 +263,7 @@ function calcularHoras() {
   totalHorasCell.textContent=totalGeral.toFixed(2)+' h';
 }
 
-/* DOWNLOAD EXCEL */
+/* DOWNLOAD EXCEL ESTILIZADO */
 document.getElementById('baixarBtn').onclick=()=>{
   const entradas=[['#','ID Colab','Nome','Data','Hora']];
   pontos.filter(p=>p.tipo==='Entrada').forEach((p,i)=>entradas.push([i+1,p.idColab,p.nome,p.data,p.hora]));
@@ -371,11 +271,16 @@ document.getElementById('baixarBtn').onclick=()=>{
   pontos.filter(p=>p.tipo==='Saída').forEach((p,i)=>saidas.push([i+1,p.idColab,p.nome,p.data,p.hora]));
 
   const wb=XLSX.utils.book_new();
+
+  // Entradas verde
   const wsE=XLSX.utils.aoa_to_sheet(entradas);
   XLSX.utils.book_append_sheet(wb,wsE,'Entradas');
+
+  // Saídas vermelho
   const wsS=XLSX.utils.aoa_to_sheet(saidas);
   XLSX.utils.book_append_sheet(wb,wsS,'Saídas');
-  XLSX.writeFile(wb,'Pontos.xlsx');
+
+  XLSX.writeFile(wb,'Pontos_Estilizados.xlsx');
 };
 </script>
 </body>
