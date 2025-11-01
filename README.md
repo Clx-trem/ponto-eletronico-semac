@@ -37,12 +37,9 @@
   .flex-row{display:flex;gap:8px;align-items:center}
   @media(max-width:720px){ header{flex-direction:column;align-items:flex-start} .controls{width:100%;justify-content:space-between} table{font-size:13px} }
 </style>
-
-<!-- SheetJS (Excel) -->
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-
 <!-- LOGIN -->
 <div id="loginScreen" style="position:fixed;inset:0;background:var(--blue);display:flex;align-items:center;justify-content:center;z-index:9999">
   <div style="background:#fff;padding:26px;border-radius:10px;width:92%;max-width:360px;text-align:center">
@@ -61,7 +58,6 @@
     <div class="logo">Ponto Eletrônico</div>
     <div id="status" class="muted">Offline • Local Storage</div>
   </div>
-
   <div style="display:flex;gap:12px;align-items:center">
     <div id="clock">--:--:--</div>
     <div class="controls">
@@ -74,7 +70,6 @@
 
 <main id="mainApp" class="hidden">
   <input id="search" class="search" placeholder="🔍 Pesquisar colaborador por nome, cargo, matrícula ou e-mail">
-
   <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px">
     <h3 style="margin:0">Colaboradores</h3>
     <div style="display:flex;gap:8px">
@@ -109,7 +104,6 @@
   </table>
 </main>
 
-<!-- Modal Editar / Adicionar -->
 <div id="colabModal" class="modal hidden">
   <div class="modal-content">
     <h3 id="colabModalTitle">Adicionar Colaborador</h3>
@@ -127,7 +121,9 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
-import { getFirestore, collection, getDocs, setDoc, doc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+import {
+  getFirestore, collection, getDocs, setDoc, doc, deleteDoc, onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCpBiFzqOod4K32cWMr5hfx13fw6LGcPVY",
@@ -145,9 +141,9 @@ let colaboradores = [];
 let pontos = [];
 let colabEmEdicao = null;
 
-/* CONTROLES DE LOGIN */
 const loginScreen = document.getElementById('loginScreen');
 const mainApp = document.getElementById('mainApp');
+
 document.getElementById('loginBtn').onclick = async () => {
   const u = document.getElementById('user').value.trim();
   const p = document.getElementById('pass').value.trim();
@@ -160,27 +156,25 @@ document.getElementById('loginBtn').onclick = async () => {
     document.getElementById('loginMsg').textContent = 'Usuário ou senha incorretos.';
   }
 };
+
 if (localStorage.getItem('autenticado') === '1') {
   loginScreen.style.display = 'none';
   mainApp.classList.remove('hidden');
   iniciarLeituras();
 }
+
 document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('autenticado'); location.reload(); };
 
-/* RELÓGIO */
 setInterval(() => {
   document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR', { hour12: false });
 }, 1000);
 
-/* INICIAR LEITURAS */
 async function iniciarLeituras(){
   document.getElementById('status').textContent = "Carregando...";
-
   const colSnap = await getDocs(collection(db, "colaboradores"));
   colaboradores = colSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   const ptSnap = await getDocs(collection(db, "pontos"));
   pontos = ptSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
   renderAll();
 
   onSnapshot(collection(db, "colaboradores"), snap => {
@@ -196,52 +190,52 @@ async function iniciarLeituras(){
   });
 }
 
-/* RENDER */
-function renderAll(){ renderColaboradores(); renderEntradasSaidas(); calcularHoras(); }
+function renderAll(){
+  renderColaboradores();
+  renderEntradasSaidas();
+  calcularHoras();
+}
 
 document.getElementById('search').addEventListener('input', () => {
   renderColaboradores(document.getElementById('search').value.toLowerCase());
 });
 
-/* RENDER COLABORADORES COM SAÍDA CONDICIONAL */
-function renderColaboradores(filtro='') {
+function renderColaboradores(filtro = '') {
   const body = document.getElementById('colabBody');
+  if (!body) return;
   body.innerHTML = '';
 
-  colaboradores.filter(c => 
-    (c.nome||'').toLowerCase().includes(filtro) ||
-    (c.cargo||'').toLowerCase().includes(filtro) ||
-    (c.matricula||'').toLowerCase().includes(filtro) ||
-    (c.email||'').toLowerCase().includes(filtro)
-  ).forEach((c,i)=>{
-    const hoje = new Date().toLocaleDateString('pt-BR');
-    const bateuEntrada = pontos.some(p => p.idColab === c.id && p.tipo==='Entrada' && p.data===hoje);
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${i+1}</td>
-      <td>${c.id}</td>
-      <td>${c.nome||''}</td>
-      <td>${c.cargo||''}</td>
-      <td>${c.matricula||''} <span class="small">${c.email||''}</span></td>
-      <td>${c.turno||''}</td>
-      <td>
-        <button class="add btnEntrada">Entrada</button>
-        <button class="secondary btnSaida" ${bateuEntrada?'':'disabled title="Bata a entrada primeiro"'}>Saída</button>
-        <button class="secondary editBtn">Editar</button>
-        <button class="danger delBtn">Excluir</button>
-      </td>`;
-
-    tr.querySelector('.btnEntrada').onclick = ()=>registrarPonto(c.id,'Entrada');
-    tr.querySelector('.btnSaida').onclick = ()=>registrarPonto(c.id,'Saída');
-    tr.querySelector('.editBtn').onclick = ()=>abrirModalEditar(c);
-    tr.querySelector('.delBtn').onclick = ()=>removerColab(c.id);
-
-    body.appendChild(tr);
-  });
+  colaboradores
+    .filter(c =>
+      (c.nome || '').toLowerCase().includes(filtro) ||
+      (c.cargo || '').toLowerCase().includes(filtro) ||
+      (c.matricula || '').toLowerCase().includes(filtro) ||
+      (c.email || '').toLowerCase().includes(filtro)
+    )
+    .forEach((c, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${c.id}</td>
+        <td>${c.nome || ''}</td>
+        <td>${c.cargo || ''}</td>
+        <td>${c.matricula || ''} <span class="small">${c.email || ''}</span></td>
+        <td>${c.turno || ''}</td>
+        <td>
+          <button class="add btnEntrada">Entrada</button>
+          <button class="secondary btnSaida">Saída</button>
+          <button class="secondary editBtn">Editar</button>
+          <button class="danger delBtn">Excluir</button>
+        </td>`;
+      tr.querySelector('.btnEntrada').onclick = () => registrarPonto(c.id, 'Entrada');
+      tr.querySelector('.btnSaida').onclick = () => registrarPonto(c.id, 'Saída'); // sem restrição
+      tr.querySelector('.editBtn').onclick = () => abrirModalEditar(c);
+      tr.querySelector('.delBtn').onclick = () => removerColab(c.id);
+      body.appendChild(tr);
+    });
 }
 
-/* MODAL ADICIONAR/EDITAR */
+/* Modal adicionar/editar */
 const colabModal = document.getElementById('colabModal');
 const colabModalTitle = document.getElementById('colabModalTitle');
 const nomeInput = document.getElementById('nomeInput');
@@ -250,132 +244,183 @@ const matriculaInput = document.getElementById('matriculaInput');
 const emailInput = document.getElementById('emailInput');
 const turnoInput = document.getElementById('turnoInput');
 
-document.getElementById('addColabBtn').onclick = ()=>abrirModalAdicionar();
-document.getElementById('cancelColab').onclick = ()=>fecharModalColab();
+document.getElementById('addColabBtn').onclick = () => abrirModalAdicionar();
+document.getElementById('cancelColab').onclick = () => fecharModalColab();
 
-function abrirModalAdicionar(){ colabEmEdicao=null; colabModalTitle.textContent='Adicionar Colaborador'; nomeInput.value=cargoInput.value=matriculaInput.value=emailInput.value=turnoInput.value=''; colabModal.classList.remove('hidden'); }
-function abrirModalEditar(c){ colabEmEdicao=c; colabModalTitle.textContent='Editar Colaborador'; nomeInput.value=c.nome||''; cargoInput.value=c.cargo||''; matriculaInput.value=c.matricula||''; emailInput.value=c.email||''; turnoInput.value=c.turno||''; colabModal.classList.remove('hidden'); }
-function fecharModalColab(){ colabModal.classList.add('hidden'); }
+function abrirModalAdicionar(){
+  colabEmEdicao = null;
+  colabModalTitle.textContent = 'Adicionar Colaborador';
+  nomeInput.value = cargoInput.value = matriculaInput.value = emailInput.value = turnoInput.value = '';
+  colabModal.classList.remove('hidden');
+}
+function abrirModalEditar(c){
+  colabEmEdicao = c;
+  colabModalTitle.textContent = 'Editar Colaborador';
+  nomeInput.value = c.nome || '';
+  cargoInput.value = c.cargo || '';
+  matriculaInput.value = c.matricula || '';
+  emailInput.value = c.email || '';
+  turnoInput.value = c.turno || '';
+  colabModal.classList.remove('hidden');
+}
+function fecharModalColab(){
+  colabModal.classList.add('hidden');
+}
 
-document.getElementById('saveColab').onclick = async ()=>{
+document.getElementById('saveColab').onclick = async () => {
   const nome = nomeInput.value.trim();
-  if(!nome) return alert('Informe o nome do colaborador');
-  const obj = { nome, cargo:cargoInput.value.trim(), matricula:matriculaInput.value.trim(), email:emailInput.value.trim(), turno:turnoInput.value.trim() };
-  if(colabEmEdicao && colabEmEdicao.id){ await setDoc(doc(db,"colaboradores",colabEmEdicao.id), {...colabEmEdicao,...obj}); }
-  else{ const newId = Date.now().toString(); await setDoc(doc(db,"colaboradores",newId), {id:newId,...obj}); }
+  if (!nome) return alert('Informe o nome do colaborador');
+  const obj = {
+    nome,
+    cargo: cargoInput.value.trim(),
+    matricula: matriculaInput.value.trim(),
+    email: emailInput.value.trim(),
+    turno: turnoInput.value.trim()
+  };
+  if (colabEmEdicao && colabEmEdicao.id) {
+    await setDoc(doc(db, "colaboradores", colabEmEdicao.id), { ...colabEmEdicao, ...obj });
+  } else {
+    const newId = Date.now().toString();
+    await setDoc(doc(db, "colaboradores", newId), { id: newId, ...obj });
+  }
   fecharModalColab();
 };
 
-/* REGISTRAR PONTO */
-async function registrarPonto(idColab,tipo){
-  const c = colaboradores.find(x=>x.id===idColab);
-  if(!c) return alert("Colaborador não encontrado!");
+async function registrarPonto(idColab, tipo) {
+  const c = colaboradores.find(x => x.id === idColab);
+  if (!c) return alert("Colaborador não encontrado!");
   const now = new Date();
-  if(tipo==='Saída'){
-    const bateuEntrada = pontos.some(p => p.idColab===idColab && p.tipo==='Entrada' && p.data===now.toLocaleDateString('pt-BR'));
-    if(!bateuEntrada){ alert("Bata a entrada antes de bater a saída!"); return; }
-  }
-  const p={id:Date.now().toString(), idColab, nome:c.nome, matricula:c.matricula, email:c.email, tipo, data:now.toLocaleDateString('pt-BR'), hora:now.toLocaleTimeString('pt-BR',{hour12:false}), horarioISO:now.toISOString()};
+  const p = {
+    id: Date.now().toString(),
+    idColab,
+    nome: c.nome,
+    matricula: c.matricula,
+    email: c.email,
+    tipo,
+    data: now.toLocaleDateString('pt-BR'),
+    hora: now.toLocaleTimeString('pt-BR', { hour12: false }),
+    horarioISO: now.toISOString()
+  };
   pontos.push(p);
   renderEntradasSaidas();
-  await setDoc(doc(db,"pontos",p.id),p);
+  await setDoc(doc(db, "pontos", p.id), p);
 }
 
-/* RENDER ENTRADAS/SAÍDAS */
-function renderEntradasSaidas(){
+function renderEntradasSaidas() {
   const entBody = document.getElementById('entradasBody');
   const saiBody = document.getElementById('saidasBody');
-  entBody.innerHTML=''; saiBody.innerHTML='';
-  pontos.filter(p=>p.tipo==='Entrada').forEach((p,i)=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${i+1}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`;
-    tr.querySelector('.delP').onclick=()=>excluirPonto(p.id);
+  entBody.innerHTML = '';
+  saiBody.innerHTML = '';
+
+  pontos.filter(p => p.tipo === 'Entrada').forEach((p, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${i+1}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`;
+    tr.querySelector('.delP').onclick = () => excluirPonto(p.id);
     entBody.appendChild(tr);
   });
-  pontos.filter(p=>p.tipo==='Saída').forEach((p,i)=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${i+1}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`;
-    tr.querySelector('.delP').onclick=()=>excluirPonto(p.id);
+
+  pontos.filter(p => p.tipo === 'Saída').forEach((p, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${i+1}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`;
+    tr.querySelector('.delP').onclick = () => excluirPonto(p.id);
     saiBody.appendChild(tr);
   });
+
   calcularHoras();
 }
 
-/* EXCLUIR PONTO */
-async function excluirPonto(id){
-  if(confirm("Excluir este ponto permanentemente?")){
-    pontos = pontos.filter(p=>p.id!==id);
+async function excluirPonto(id) {
+  if (confirm("Excluir este ponto permanentemente?")) {
+    pontos = pontos.filter(p => p.id !== id);
     renderEntradasSaidas();
-    await deleteDoc(doc(db,"pontos",id));
+    await deleteDoc(doc(db, "pontos", id));
   }
 }
 
-/* REMOVER COLABORADOR */
-async function removerColab(id){
-  if(confirm("Excluir colaborador permanentemente?")){
-    colaboradores = colaboradores.filter(c=>c.id!==id);
-    pontos = pontos.filter(p=>p.idColab!==id);
+async function removerColab(id) {
+  if (confirm("Excluir colaborador permanentemente?")) {
+    colaboradores = colaboradores.filter(c => c.id !== id);
+    pontos = pontos.filter(p => p.idColab !== id);
     renderAll();
-    await deleteDoc(doc(db,"colaboradores",id));
-    const pts = await getDocs(collection(db,"pontos"));
-    for(let d of pts.docs){ if(d.data().idColab===id) await deleteDoc(doc(db,"pontos",d.id)); }
+    await deleteDoc(doc(db, "colaboradores", id));
+    const pts = await getDocs(collection(db, "pontos"));
+    for (let d of pts.docs) if (d.data().idColab === id) await deleteDoc(doc(db, "pontos", d.id));
   }
 }
 
-/* LIMPAR TODOS OS PONTOS */
 document.getElementById('limparTodosBtn').onclick = async () => {
-  if(confirm("Deseja realmente excluir todos os pontos?")){
-    pontos=[];
+  if (confirm("Deseja realmente excluir todos os pontos?")) {
+    pontos = [];
     renderEntradasSaidas();
-    const col = await getDocs(collection(db,"pontos"));
-    for(let docSnap of col.docs){ await deleteDoc(doc(db,"pontos",docSnap.id)); }
+    const col = await getDocs(collection(db, "pontos"));
+    for (let docSnap of col.docs) await deleteDoc(doc(db, "pontos", docSnap.id));
   }
 };
 
-/* CALCULAR HORAS (com minutos) */
-function calcularHoras(){
+// CALCULAR HORAS COM MINUTOS
+function calcularHoras() {
   const horasBody = document.getElementById('horasBody');
   const totalHorasCell = document.getElementById('totalHoras');
-  horasBody.innerHTML='';
-  let dados={}, totalGeral=0;
-  pontos.forEach(p=>{
-    if(!dados[p.nome]) dados[p.nome]={};
-    if(!dados[p.nome][p.data]) dados[p.nome][p.data]=[];
+  horasBody.innerHTML = '';
+  let dados = {}, totalGeral = 0;
+  pontos.forEach(p => {
+    if (!dados[p.nome]) dados[p.nome] = {};
+    if (!dados[p.nome][p.data]) dados[p.nome][p.data] = [];
     dados[p.nome][p.data].push(p);
   });
-  Object.keys(dados).forEach(nome=>{
-    Object.keys(dados[nome]).forEach(data=>{
-      let reg = dados[nome][data].sort((a,b)=>new Date(a.horarioISO)-new Date(b.horarioISO));
-      let entrada=null,total=0;
-      reg.forEach(r=>{
-        const hora=new Date(r.horarioISO);
-        if(r.tipo==='Entrada') entrada=hora;
-        if(r.tipo==='Saída' && entrada){ total += (hora-entrada)/3600000; entrada=null; }
+
+  Object.keys(dados).forEach(nome => {
+    Object.keys(dados[nome]).forEach(data => {
+      let reg = dados[nome][data].sort((a,b) => new Date(a.horarioISO) - new Date(b.horarioISO));
+      let entrada = null, total = 0;
+      reg.forEach(r => {
+        const hora = new Date(r.horarioISO);
+        if (r.tipo === 'Entrada') entrada = hora;
+        if (r.tipo === 'Saída' && entrada) {
+          total += (hora - entrada) / 3600000;
+          entrada = null;
+        }
       });
       totalGeral += total;
-      const h = Math.floor(total);
-      const m = Math.round((total-h)*60);
-      const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${nome}</td><td>${data}</td><td>${h} h ${m} min</td>`;
+      let h = Math.floor(total);
+      let m = Math.round((total - h)*60);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${nome}</td><td>${data}</td><td>${h}h ${m}m</td>`;
       horasBody.appendChild(tr);
     });
   });
-  const totalH=Math.floor(totalGeral);
-  const totalM=Math.round((totalGeral-totalH)*60);
-  totalHorasCell.textContent=`${totalH} h ${totalM} min`;
+  let gh = Math.floor(totalGeral);
+  let gm = Math.round((totalGeral - gh)*60);
+  totalHorasCell.textContent = `${gh}h ${gm}m`;
 }
 
-/* DOWNLOAD EXCEL */
-document.getElementById('baixarBtn').onclick = ()=>{
-  const entradas=[['#','ID Colab','Nome','Data','Hora']];
-  pontos.filter(p=>p.tipo==='Entrada').forEach((p,i)=>entradas.push([i+1,p.idColab,p.nome,p.data,p.hora]));
-  const saidas=[['#','ID Colab','Nome','Data','Hora']];
-  pontos.filter(p=>p.tipo==='Saída').forEach((p,i)=>saidas.push([i+1,p.idColab,p.nome,p.data,p.hora]));
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(entradas),'Entradas');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(saidas),'Saídas');
-  XLSX.writeFile(wb,'Pontos.xlsx');
+// DOWNLOAD EXCEL
+document.getElementById('baixarBtn').onclick = () => {
+  const entradas = [['#','ID Colab','Nome','Data','Hora']];
+  pontos.filter(p => p.tipo === 'Entrada').forEach((p,i) => entradas.push([i+1,p.idColab,p.nome,p.data,p.hora]));
+  const saidas = [['#','ID Colab','Nome','Data','Hora']];
+  pontos.filter(p => p.tipo === 'Saída').forEach((p,i) => saidas.push([i+1,p.idColab,p.nome,p.data,p.hora]));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(entradas), 'Entradas');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(saidas), 'Saídas');
+  XLSX.writeFile(wb, 'Pontos.xlsx');
 };
+
+// PONTO DE SAÍDA AUTOMÁTICO 20:00
+function baterSaidaAutomatica() {
+  const agora = new Date();
+  const horaAtual = agora.getHours();
+  const minutoAtual = agora.getMinutes();
+  if (horaAtual === 20 && minutoAtual === 0) {
+    colaboradores.forEach(c => {
+      const pontosHoje = pontos.filter(p => p.idColab === c.id && p.data === agora.toLocaleDateString('pt-BR'));
+      const temSaida = pontosHoje.some(p => p.tipo === 'Saída');
+      const temEntrada = pontosHoje.some(p => p.tipo === 'Entrada');
+      if (temEntrada && !temSaida) registrarPonto(c.id, 'Saída');
+    });
+  }
+}
+setInterval(baterSaidaAutomatica, 60000);
 
 </script>
 </body>
