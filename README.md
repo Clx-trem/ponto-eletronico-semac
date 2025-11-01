@@ -38,6 +38,7 @@
   @media(max-width:720px){ header{flex-direction:column;align-items:flex-start} .controls{width:100%;justify-content:space-between} table{font-size:13px} }
 </style>
 
+<!-- SheetJS (Excel) -->
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -51,7 +52,7 @@
     <label style="font-size:13px"><input type="checkbox" id="remember"> Lembrar login</label><br>
     <button id="loginBtn" class="add" style="width:92%;margin-top:10px">Entrar</button>
     <p id="loginMsg" style="color:crimson;margin-top:8px;height:18px"></p>
-    <p style="font-size:12px;color:var(--muted);margin-top:8px">Usuário: <b>admin</b> / Senha: <b>1234578910</b></p>
+    <p style="font-size:12px;color:var(--muted);margin-top:8px">Usuário: <b>CLX</b> / Senha: <b>02072007</b></p>
   </div>
 </div>
 
@@ -104,11 +105,11 @@
   <table id="horasTable">
     <thead><tr><th>Funcionário</th><th>Data</th><th>Horas Trabalhadas</th></tr></thead>
     <tbody id="horasBody"></tbody>
-    <tfoot><tr><td colspan="2"><b>Total Geral</b></td><td id="totalHoras">0h 0m</td></tr></tfoot>
+    <tfoot><tr><td colspan="2"><b>Total Geral</b></td><td id="totalHoras">0</td></tr></tfoot>
   </table>
 </main>
 
-<!-- Modal Adicionar / Editar -->
+<!-- Modal Editar / Adicionar -->
 <div id="colabModal" class="modal hidden">
   <div class="modal-content">
     <h3 id="colabModalTitle">Adicionar Colaborador</h3>
@@ -144,13 +145,13 @@ let colaboradores = [];
 let pontos = [];
 let colabEmEdicao = null;
 
-/* LOGIN */
+/* CONTROLES DE LOGIN */
 const loginScreen = document.getElementById('loginScreen');
 const mainApp = document.getElementById('mainApp');
 document.getElementById('loginBtn').onclick = async () => {
   const u = document.getElementById('user').value.trim();
   const p = document.getElementById('pass').value.trim();
-  if (u === 'admin' && p === '1234578910') { 
+  if (u === 'CLX' && p === '02072007') {
     loginScreen.style.display = 'none';
     mainApp.classList.remove('hidden');
     if (document.getElementById('remember').checked) localStorage.setItem('autenticado','1');
@@ -174,11 +175,14 @@ setInterval(() => {
 /* INICIAR LEITURAS */
 async function iniciarLeituras(){
   document.getElementById('status').textContent = "Carregando...";
+
   const colSnap = await getDocs(collection(db, "colaboradores"));
   colaboradores = colSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   const ptSnap = await getDocs(collection(db, "pontos"));
   pontos = ptSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
   renderAll();
+
   onSnapshot(collection(db, "colaboradores"), snap => {
     colaboradores = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderColaboradores(document.getElementById('search').value.toLowerCase());
@@ -192,41 +196,52 @@ async function iniciarLeituras(){
   });
 }
 
+/* RENDER */
 function renderAll(){ renderColaboradores(); renderEntradasSaidas(); calcularHoras(); }
 
 document.getElementById('search').addEventListener('input', () => {
   renderColaboradores(document.getElementById('search').value.toLowerCase());
 });
 
-function renderColaboradores(filtro = '') {
+/* RENDER COLABORADORES COM SAÍDA CONDICIONAL */
+function renderColaboradores(filtro='') {
   const body = document.getElementById('colabBody');
   body.innerHTML = '';
-  colaboradores
-    .filter(c => (c.nome||'').toLowerCase().includes(filtro) || (c.cargo||'').toLowerCase().includes(filtro) || (c.matricula||'').toLowerCase().includes(filtro) || (c.email||'').toLowerCase().includes(filtro))
-    .forEach((c,i) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${i+1}</td>
-        <td>${c.id}</td>
-        <td>${c.nome||''}</td>
-        <td>${c.cargo||''}</td>
-        <td>${c.matricula||''} <span class="small">${c.email||''}</span></td>
-        <td>${c.turno||''}</td>
-        <td>
-          <button class="add btnEntrada">Entrada</button>
-          <button class="secondary btnSaida">Saída</button>
-          <button class="secondary editBtn">Editar</button>
-          <button class="danger delBtn">Excluir</button>
-        </td>`;
-      tr.querySelector('.btnEntrada').onclick = () => registrarPonto(c.id,'Entrada');
-      tr.querySelector('.btnSaida').onclick = () => registrarPonto(c.id,'Saída');
-      tr.querySelector('.editBtn').onclick = () => abrirModalEditar(c);
-      tr.querySelector('.delBtn').onclick = () => removerColab(c.id);
-      body.appendChild(tr);
-    });
+
+  colaboradores.filter(c => 
+    (c.nome||'').toLowerCase().includes(filtro) ||
+    (c.cargo||'').toLowerCase().includes(filtro) ||
+    (c.matricula||'').toLowerCase().includes(filtro) ||
+    (c.email||'').toLowerCase().includes(filtro)
+  ).forEach((c,i)=>{
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    const bateuEntrada = pontos.some(p => p.idColab === c.id && p.tipo==='Entrada' && p.data===hoje);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td>${c.id}</td>
+      <td>${c.nome||''}</td>
+      <td>${c.cargo||''}</td>
+      <td>${c.matricula||''} <span class="small">${c.email||''}</span></td>
+      <td>${c.turno||''}</td>
+      <td>
+        <button class="add btnEntrada">Entrada</button>
+        <button class="secondary btnSaida" ${bateuEntrada?'':'disabled title="Bata a entrada primeiro"'}>Saída</button>
+        <button class="secondary editBtn">Editar</button>
+        <button class="danger delBtn">Excluir</button>
+      </td>`;
+
+    tr.querySelector('.btnEntrada').onclick = ()=>registrarPonto(c.id,'Entrada');
+    tr.querySelector('.btnSaida').onclick = ()=>registrarPonto(c.id,'Saída');
+    tr.querySelector('.editBtn').onclick = ()=>abrirModalEditar(c);
+    tr.querySelector('.delBtn').onclick = ()=>removerColab(c.id);
+
+    body.appendChild(tr);
+  });
 }
 
-/* Modal Adicionar / Editar */
+/* MODAL ADICIONAR/EDITAR */
 const colabModal = document.getElementById('colabModal');
 const colabModalTitle = document.getElementById('colabModalTitle');
 const nomeInput = document.getElementById('nomeInput');
@@ -234,36 +249,42 @@ const cargoInput = document.getElementById('cargoInput');
 const matriculaInput = document.getElementById('matriculaInput');
 const emailInput = document.getElementById('emailInput');
 const turnoInput = document.getElementById('turnoInput');
-document.getElementById('addColabBtn').onclick = () => abrirModalAdicionar();
-document.getElementById('cancelColab').onclick = () => fecharModalColab();
+
+document.getElementById('addColabBtn').onclick = ()=>abrirModalAdicionar();
+document.getElementById('cancelColab').onclick = ()=>fecharModalColab();
 
 function abrirModalAdicionar(){ colabEmEdicao=null; colabModalTitle.textContent='Adicionar Colaborador'; nomeInput.value=cargoInput.value=matriculaInput.value=emailInput.value=turnoInput.value=''; colabModal.classList.remove('hidden'); }
 function abrirModalEditar(c){ colabEmEdicao=c; colabModalTitle.textContent='Editar Colaborador'; nomeInput.value=c.nome||''; cargoInput.value=c.cargo||''; matriculaInput.value=c.matricula||''; emailInput.value=c.email||''; turnoInput.value=c.turno||''; colabModal.classList.remove('hidden'); }
 function fecharModalColab(){ colabModal.classList.add('hidden'); }
 
-document.getElementById('saveColab').onclick = async () => {
-  const nome = nomeInput.value.trim(); if(!nome) return alert('Informe o nome do colaborador');
+document.getElementById('saveColab').onclick = async ()=>{
+  const nome = nomeInput.value.trim();
+  if(!nome) return alert('Informe o nome do colaborador');
   const obj = { nome, cargo:cargoInput.value.trim(), matricula:matriculaInput.value.trim(), email:emailInput.value.trim(), turno:turnoInput.value.trim() };
   if(colabEmEdicao && colabEmEdicao.id){ await setDoc(doc(db,"colaboradores",colabEmEdicao.id), {...colabEmEdicao,...obj}); }
-  else{ const newId=Date.now().toString(); await setDoc(doc(db,"colaboradores",newId),{id:newId,...obj}); }
+  else{ const newId = Date.now().toString(); await setDoc(doc(db,"colaboradores",newId), {id:newId,...obj}); }
   fecharModalColab();
-}
+};
 
-/* Registrar Ponto */
+/* REGISTRAR PONTO */
 async function registrarPonto(idColab,tipo){
-  const c=colaboradores.find(x=>x.id===idColab);
+  const c = colaboradores.find(x=>x.id===idColab);
   if(!c) return alert("Colaborador não encontrado!");
-  const now=new Date();
-  const p={ id:Date.now().toString(), idColab, nome:c.nome, matricula:c.matricula, email:c.email, tipo, data:now.toLocaleDateString('pt-BR'), hora:now.toLocaleTimeString('pt-BR',{hour12:false}), horarioISO:now.toISOString() };
+  const now = new Date();
+  if(tipo==='Saída'){
+    const bateuEntrada = pontos.some(p => p.idColab===idColab && p.tipo==='Entrada' && p.data===now.toLocaleDateString('pt-BR'));
+    if(!bateuEntrada){ alert("Bata a entrada antes de bater a saída!"); return; }
+  }
+  const p={id:Date.now().toString(), idColab, nome:c.nome, matricula:c.matricula, email:c.email, tipo, data:now.toLocaleDateString('pt-BR'), hora:now.toLocaleTimeString('pt-BR',{hour12:false}), horarioISO:now.toISOString()};
   pontos.push(p);
   renderEntradasSaidas();
   await setDoc(doc(db,"pontos",p.id),p);
 }
 
-/* Render Entradas / Saídas */
+/* RENDER ENTRADAS/SAÍDAS */
 function renderEntradasSaidas(){
-  const entBody=document.getElementById('entradasBody');
-  const saiBody=document.getElementById('saidasBody');
+  const entBody = document.getElementById('entradasBody');
+  const saiBody = document.getElementById('saidasBody');
   entBody.innerHTML=''; saiBody.innerHTML='';
   pontos.filter(p=>p.tipo==='Entrada').forEach((p,i)=>{
     const tr=document.createElement('tr');
@@ -280,36 +301,43 @@ function renderEntradasSaidas(){
   calcularHoras();
 }
 
-/* Excluir ponto */
-async function excluirPonto(id){ if(confirm("Excluir este ponto permanentemente?")){ pontos=pontos.filter(p=>p.id!==id); renderEntradasSaidas(); await deleteDoc(doc(db,"pontos",id)); }}
+/* EXCLUIR PONTO */
+async function excluirPonto(id){
+  if(confirm("Excluir este ponto permanentemente?")){
+    pontos = pontos.filter(p=>p.id!==id);
+    renderEntradasSaidas();
+    await deleteDoc(doc(db,"pontos",id));
+  }
+}
 
-/* Remover colaborador */
+/* REMOVER COLABORADOR */
 async function removerColab(id){
   if(confirm("Excluir colaborador permanentemente?")){
-    colaboradores=colaboradores.filter(c=>c.id!==id);
-    pontos=pontos.filter(p=>p.idColab!==id);
+    colaboradores = colaboradores.filter(c=>c.id!==id);
+    pontos = pontos.filter(p=>p.idColab!==id);
     renderAll();
     await deleteDoc(doc(db,"colaboradores",id));
-    const pts=await getDocs(collection(db,"pontos"));
+    const pts = await getDocs(collection(db,"pontos"));
     for(let d of pts.docs){ if(d.data().idColab===id) await deleteDoc(doc(db,"pontos",d.id)); }
   }
 }
 
-/* Limpar todos pontos */
-document.getElementById('limparTodosBtn').onclick = async ()=>{
+/* LIMPAR TODOS OS PONTOS */
+document.getElementById('limparTodosBtn').onclick = async () => {
   if(confirm("Deseja realmente excluir todos os pontos?")){
     pontos=[];
     renderEntradasSaidas();
-    const col=await getDocs(collection(db,"pontos"));
+    const col = await getDocs(collection(db,"pontos"));
     for(let docSnap of col.docs){ await deleteDoc(doc(db,"pontos",docSnap.id)); }
   }
-}
+};
 
-/* Calcular horas com horas e minutos */
+/* CALCULAR HORAS (com minutos) */
 function calcularHoras(){
-  const horasBody=document.getElementById('horasBody');
-  const totalHorasCell=document.getElementById('totalHoras');
-  horasBody.innerHTML=''; let dados={}, totalGeralM=0;
+  const horasBody = document.getElementById('horasBody');
+  const totalHorasCell = document.getElementById('totalHoras');
+  horasBody.innerHTML='';
+  let dados={}, totalGeral=0;
   pontos.forEach(p=>{
     if(!dados[p.nome]) dados[p.nome]={};
     if(!dados[p.nome][p.data]) dados[p.nome][p.data]=[];
@@ -317,44 +345,38 @@ function calcularHoras(){
   });
   Object.keys(dados).forEach(nome=>{
     Object.keys(dados[nome]).forEach(data=>{
-      let reg=dados[nome][data].sort((a,b)=>new Date(a.horarioISO)-new Date(b.horarioISO));
-      let entrada=null, totalM=0;
+      let reg = dados[nome][data].sort((a,b)=>new Date(a.horarioISO)-new Date(b.horarioISO));
+      let entrada=null,total=0;
       reg.forEach(r=>{
         const hora=new Date(r.horarioISO);
         if(r.tipo==='Entrada') entrada=hora;
-        if(r.tipo==='Saída' && entrada){
-          totalM+=Math.floor((hora-entrada)/60000);
-          entrada=null;
-        }
+        if(r.tipo==='Saída' && entrada){ total += (hora-entrada)/3600000; entrada=null; }
       });
-      totalGeralM+=totalM;
-      const h=Math.floor(totalM/60), m=totalM%60;
+      totalGeral += total;
+      const h = Math.floor(total);
+      const m = Math.round((total-h)*60);
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${nome}</td><td>${data}</td><td>${h}h ${m}m</td>`;
+      tr.innerHTML=`<td>${nome}</td><td>${data}</td><td>${h} h ${m} min</td>`;
       horasBody.appendChild(tr);
     });
   });
-  totalHorasCell.textContent = Math.floor(totalGeralM/60)+'h '+(totalGeralM%60)+'m';
+  const totalH=Math.floor(totalGeral);
+  const totalM=Math.round((totalGeral-totalH)*60);
+  totalHorasCell.textContent=`${totalH} h ${totalM} min`;
 }
 
-/* Download Excel com Entradas, Saídas e Resumo */
-document.getElementById('baixarBtn').onclick=()=>{
+/* DOWNLOAD EXCEL */
+document.getElementById('baixarBtn').onclick = ()=>{
   const entradas=[['#','ID Colab','Nome','Data','Hora']];
   pontos.filter(p=>p.tipo==='Entrada').forEach((p,i)=>entradas.push([i+1,p.idColab,p.nome,p.data,p.hora]));
   const saidas=[['#','ID Colab','Nome','Data','Hora']];
   pontos.filter(p=>p.tipo==='Saída').forEach((p,i)=>saidas.push([i+1,p.idColab,p.nome,p.data,p.hora]));
-  const resumo=[['Funcionário','Data','Horas Trabalhadas']];
-  const horasBody=document.getElementById('horasBody').children;
-  for(let tr of horasBody){
-    const tds=tr.children;
-    resumo.push([tds[0].textContent,tds[1].textContent,tds[2].textContent]);
-  }
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(entradas),'Entradas');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(saidas),'Saídas');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(resumo),'Resumo');
   XLSX.writeFile(wb,'Pontos.xlsx');
-}
+};
+
 </script>
 </body>
 </html>
