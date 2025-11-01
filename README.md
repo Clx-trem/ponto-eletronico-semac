@@ -38,7 +38,6 @@
   @media(max-width:720px){ header{flex-direction:column;align-items:flex-start} .controls{width:100%;justify-content:space-between} table{font-size:13px} }
 </style>
 
-<!-- SheetJS (Excel) -->
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -127,9 +126,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
-import {
-  getFirestore, collection, getDocs, setDoc, doc, deleteDoc, onSnapshot
-} from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, setDoc, doc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCpBiFzqOod4K32cWMr5hfx13fw6LGcPVY",
@@ -147,7 +144,6 @@ let colaboradores = [];
 let pontos = [];
 let colabEmEdicao = null;
 
-/* CONTROLES DE LOGIN */
 const loginScreen = document.getElementById('loginScreen');
 const mainApp = document.getElementById('mainApp');
 document.getElementById('loginBtn').onclick = async () => {
@@ -158,199 +154,135 @@ document.getElementById('loginBtn').onclick = async () => {
     mainApp.classList.remove('hidden');
     if (document.getElementById('remember').checked) localStorage.setItem('autenticado','1');
     iniciarLeituras();
-  } else {
-    document.getElementById('loginMsg').textContent = 'Usuário ou senha incorretos.';
-  }
+  } else { document.getElementById('loginMsg').textContent = 'Usuário ou senha incorretos.'; }
 };
-if (localStorage.getItem('autenticado') === '1') {
-  loginScreen.style.display = 'none';
-  mainApp.classList.remove('hidden');
-  iniciarLeituras();
-}
+if (localStorage.getItem('autenticado') === '1') { loginScreen.style.display = 'none'; mainApp.classList.remove('hidden'); iniciarLeituras(); }
 document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('autenticado'); location.reload(); };
 
-/* RELÓGIO */
-setInterval(() => {
-  document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR', { hour12: false });
-}, 1000);
+setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR',{hour12:false}); }, 1000);
 
-/* INICIAR LEITURAS */
 async function iniciarLeituras(){
   document.getElementById('status').textContent = "Carregando...";
   const colSnap = await getDocs(collection(db, "colaboradores"));
-  colaboradores = colSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  colaboradores = colSnap.docs.map(d => ({ id:d.id, ...d.data() }));
   const ptSnap = await getDocs(collection(db, "pontos"));
-  pontos = ptSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  pontos = ptSnap.docs.map(d => ({ id:d.id, ...d.data() }));
   renderAll();
   onSnapshot(collection(db, "colaboradores"), snap => {
-    colaboradores = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    colaboradores = snap.docs.map(d => ({ id:d.id, ...d.data() }));
     renderColaboradores(document.getElementById('search').value.toLowerCase());
     document.getElementById('status').textContent = "Online • Firebase";
   });
   onSnapshot(collection(db, "pontos"), snap => {
-    pontos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    pontos = snap.docs.map(d => ({ id:d.id, ...d.data() }));
     renderEntradasSaidas();
     calcularHoras();
     document.getElementById('status').textContent = "Online • Firebase";
   });
 }
 
-/* RENDER */
 function renderAll(){ renderColaboradores(); renderEntradasSaidas(); calcularHoras(); }
-document.getElementById('search').addEventListener('input', () => {
-  renderColaboradores(document.getElementById('search').value.toLowerCase());
-});
+document.getElementById('search').addEventListener('input',()=>{ renderColaboradores(document.getElementById('search').value.toLowerCase()); });
 
-function renderColaboradores(filtro = '') {
-  const body = document.getElementById('colabBody'); if (!body) return; body.innerHTML = '';
-  colaboradores.filter(c => (c.nome || '').toLowerCase().includes(filtro) ||
-    (c.cargo || '').toLowerCase().includes(filtro) ||
-    (c.matricula || '').toLowerCase().includes(filtro) ||
-    (c.email || '').toLowerCase().includes(filtro)
-  ).forEach((c, i) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${i + 1}</td>
-      <td>${c.id}</td>
-      <td>${c.nome || ''}</td>
-      <td>${c.cargo || ''}</td>
-      <td>${c.matricula || ''} <span class="small">${c.email || ''}</span></td>
-      <td>${c.turno || ''}</td>
-      <td>
-        <button class="add btnEntrada">Entrada</button>
-        <button class="secondary btnSaida">Saída</button>
-        <button class="secondary editBtn">Editar</button>
-        <button class="danger delBtn">Excluir</button>
-      </td>`;
-    tr.querySelector('.btnEntrada').onclick = () => registrarPonto(c.id, 'Entrada');
-    tr.querySelector('.btnSaida').onclick = () => registrarPonto(c.id, 'Saída');
-    tr.querySelector('.editBtn').onclick = () => abrirModalEditar(c);
-    tr.querySelector('.delBtn').onclick = () => removerColab(c.id);
+function renderColaboradores(filtro=''){
+  const body=document.getElementById('colabBody'); if(!body) return; body.innerHTML='';
+  colaboradores.filter(c=> (c.nome||'').toLowerCase().includes(filtro) || (c.cargo||'').toLowerCase().includes(filtro) || (c.matricula||'').toLowerCase().includes(filtro) || (c.email||'').toLowerCase().includes(filtro) ).forEach((c,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${i+1}</td><td>${c.id}</td><td>${c.nome||''}</td><td>${c.cargo||''}</td><td>${c.matricula||''} <span class="small">${c.email||''}</span></td><td>${c.turno||''}</td><td><button class="add btnEntrada">Entrada</button><button class="secondary btnSaida">Saída</button><button class="secondary editBtn">Editar</button><button class="danger delBtn">Excluir</button></td>`;
+    tr.querySelector('.btnEntrada').onclick=()=>registrarPonto(c.id,'Entrada');
+    tr.querySelector('.btnSaida').onclick=()=>registrarPonto(c.id,'Saída');
+    tr.querySelector('.editBtn').onclick=()=>abrirModalEditar(c);
+    tr.querySelector('.delBtn').onclick=()=>removerColab(c.id);
     body.appendChild(tr);
   });
 }
 
-/* MODAL ADICIONAR / EDITAR */
-const colabModal = document.getElementById('colabModal');
-const colabModalTitle = document.getElementById('colabModalTitle');
-const nomeInput = document.getElementById('nomeInput');
-const cargoInput = document.getElementById('cargoInput');
-const matriculaInput = document.getElementById('matriculaInput');
-const emailInput = document.getElementById('emailInput');
-const turnoInput = document.getElementById('turnoInput');
-document.getElementById('addColabBtn').onclick = () => abrirModalAdicionar();
-document.getElementById('cancelColab').onclick = () => fecharModalColab();
+/* Modal Adicionar / Editar */
+const colabModal=document.getElementById('colabModal');
+const colabModalTitle=document.getElementById('colabModalTitle');
+const nomeInput=document.getElementById('nomeInput');
+const cargoInput=document.getElementById('cargoInput');
+const matriculaInput=document.getElementById('matriculaInput');
+const emailInput=document.getElementById('emailInput');
+const turnoInput=document.getElementById('turnoInput');
+document.getElementById('addColabBtn').onclick=()=>abrirModalAdicionar();
+document.getElementById('cancelColab').onclick=()=>fecharModalColab();
 
-function abrirModalAdicionar(){
-  colabEmEdicao = null;
-  colabModalTitle.textContent = 'Adicionar Colaborador';
-  nomeInput.value = cargoInput.value = matriculaInput.value = emailInput.value = turnoInput.value = '';
-  colabModal.classList.remove('hidden');
-}
-function abrirModalEditar(c){
-  colabEmEdicao = c;
-  colabModalTitle.textContent = 'Editar Colaborador';
-  nomeInput.value = c.nome || '';
-  cargoInput.value = c.cargo || '';
-  matriculaInput.value = c.matricula || '';
-  emailInput.value = c.email || '';
-  turnoInput.value = c.turno || '';
-  colabModal.classList.remove('hidden');
-}
+function abrirModalAdicionar(){ colabEmEdicao=null; colabModalTitle.textContent='Adicionar Colaborador'; nomeInput.value=cargoInput.value=matriculaInput.value=emailInput.value=turnoInput.value=''; colabModal.classList.remove('hidden'); }
+function abrirModalEditar(c){ colabEmEdicao=c; colabModalTitle.textContent='Editar Colaborador'; nomeInput.value=c.nome||''; cargoInput.value=c.cargo||''; matriculaInput.value=c.matricula||''; emailInput.value=c.email||''; turnoInput.value=c.turno||''; colabModal.classList.remove('hidden'); }
 function fecharModalColab(){ colabModal.classList.add('hidden'); }
 
-document.getElementById('saveColab').onclick = async () => {
-  const nome = nomeInput.value.trim();
-  if (!nome) return alert('Informe o nome do colaborador');
-  const obj = { nome, cargo: cargoInput.value.trim(), matricula: matriculaInput.value.trim(), email: emailInput.value.trim(), turno: turnoInput.value.trim() };
-  if (colabEmEdicao && colabEmEdicao.id) { await setDoc(doc(db, "colaboradores", colabEmEdicao.id), { ...colabEmEdicao, ...obj }); }
-  else { const newId = Date.now().toString(); await setDoc(doc(db, "colaboradores", newId), { id: newId, ...obj }); }
+document.getElementById('saveColab').onclick=async ()=>{
+  const nome=nomeInput.value.trim(); if(!nome) return alert('Informe o nome do colaborador');
+  const obj={ nome, cargo:cargoInput.value.trim(), matricula:matriculaInput.value.trim(), email:emailInput.value.trim(), turno:turnoInput.value.trim() };
+  if(colabEmEdicao && colabEmEdicao.id){ await setDoc(doc(db,"colaboradores",colabEmEdicao.id), {...colabEmEdicao,...obj}); } 
+  else{ const newId=Date.now().toString(); await setDoc(doc(db,"colaboradores",newId),{id:newId,...obj}); }
   fecharModalColab();
 };
 
-/* REGISTRAR PONTO */
-async function registrarPonto(idColab, tipo) {
-  const c = colaboradores.find(x => x.id === idColab); if (!c) return alert("Colaborador não encontrado!");
-  const now = new Date();
-  const p = { id: Date.now().toString(), idColab, nome: c.nome, matricula: c.matricula, email: c.email, tipo, data: now.toLocaleDateString('pt-BR'), hora: now.toLocaleTimeString('pt-BR', { hour12: false }), horarioISO: now.toISOString() };
-  pontos.push(p); renderEntradasSaidas(); await setDoc(doc(db, "pontos", p.id), p);
+/* Registrar Ponto */
+async function registrarPonto(idColab,tipo){
+  const c=colaboradores.find(x=>x.id===idColab); if(!c) return alert("Colaborador não encontrado!");
+  const now=new Date();
+  const p={ id:Date.now().toString(), idColab, nome:c.nome, matricula:c.matricula, email:c.email, tipo, data:now.toLocaleDateString('pt-BR'), hora:now.toLocaleTimeString('pt-BR',{hour12:false}), horarioISO:now.toISOString() };
+  pontos.push(p);
+  renderEntradasSaidas();
+  await setDoc(doc(db,"pontos",p.id),p);
 }
 
-/* RENDER ENTRADAS / SAÍDAS */
-function renderEntradasSaidas() {
-  const entBody = document.getElementById('entradasBody'); const saiBody = document.getElementById('saidasBody');
-  entBody.innerHTML = ''; saiBody.innerHTML = '';
-  pontos.filter(p => p.tipo === 'Entrada').forEach((p,i) => {
-    const tr = document.createElement('tr'); tr.innerHTML = `<td>${i+1}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`;
-    tr.querySelector('.delP').onclick = () => excluirPonto(p.id); entBody.appendChild(tr);
-  });
-  pontos.filter(p => p.tipo === 'Saída').forEach((p,i) => {
-    const tr = document.createElement('tr'); tr.innerHTML = `<td>${i+1}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`;
-    tr.querySelector('.delP').onclick = () => excluirPonto(p.id); saiBody.appendChild(tr);
-  });
+function renderEntradasSaidas(){
+  const entBody=document.getElementById('entradasBody');
+  const saiBody=document.getElementById('saidasBody');
+  entBody.innerHTML=''; saiBody.innerHTML='';
+  pontos.filter(p=>p.tipo==='Entrada').forEach((p,i)=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${i+1}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`; tr.querySelector('.delP').onclick=()=>excluirPonto(p.id); entBody.appendChild(tr); });
+  pontos.filter(p=>p.tipo==='Saída').forEach((p,i)=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${i+1}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`; tr.querySelector('.delP').onclick=()=>excluirPonto(p.id); saiBody.appendChild(tr); });
   calcularHoras();
 }
 
-/* EXCLUIR PONTO */
-async function excluirPonto(id) {
-  if (confirm("Excluir este ponto permanentemente?")) {
-    pontos = pontos.filter(p => p.id !== id);
-    renderEntradasSaidas();
-    await deleteDoc(doc(db, "pontos", id));
-  }
+async function excluirPonto(id){ if(confirm("Excluir este ponto permanentemente?")){ pontos=pontos.filter(p=>p.id!==id); renderEntradasSaidas(); await deleteDoc(doc(db,"pontos",id)); }
+
+/* Calcular Horas com Minutos */
+function calcularHoras(){
+  const horasBody=document.getElementById('horasBody');
+  const totalHorasCell=document.getElementById('totalHoras');
+  horasBody.innerHTML=''; let totalGeralMs=0;
+  let dados={};
+  pontos.forEach(p=>{ if(!dados[p.nome]) dados[p.nome]={}; if(!dados[p.nome][p.data]) dados[p.nome][p.data]=[]; dados[p.nome][p.data].push(p); });
+  Object.keys(dados).forEach(nome=>{ Object.keys(dados[nome]).forEach(data=>{
+    let registros=dados[nome][data].sort((a,b)=>new Date(a.horarioISO)-new Date(b.horarioISO));
+    let entrada=null, totalMs=0;
+    registros.forEach(r=>{ const hora=new Date(r.horarioISO); if(r.tipo==='Entrada') entrada=hora; if(r.tipo==='Saída' && entrada){ totalMs += hora-entrada; entrada=null; } });
+    totalGeralMs += totalMs;
+    const h=Math.floor(totalMs/3600000);
+    const m=Math.floor((totalMs%3600000)/60000);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${nome}</td><td>${data}</td><td>${h} h ${m} min</td>`;
+    horasBody.appendChild(tr);
+  })});
+  totalHorasCell.textContent=`${Math.floor(totalGeralMs/3600000)} h ${Math.floor((totalGeralMs%3600000)/60000)} min`;
 }
 
-/* REMOVER COLABORADOR */
-async function removerColab(id) {
-  if (confirm("Excluir colaborador permanentemente?")) {
-    colaboradores = colaboradores.filter(c => c.id !== id);
-    pontos = pontos.filter(p => p.idColab !== id);
-    renderAll();
-    await deleteDoc(doc(db, "colaboradores", id));
-    const pts = await getDocs(collection(db, "pontos"));
-    for (let d of pts.docs) { if (d.data().idColab === id) await deleteDoc(doc(db, "pontos", d.id)); }
-  }
-}
+/* Excluir Colaborador */
+async function removerColab(id){ if(confirm("Excluir colaborador permanentemente?")){ await deleteDoc(doc(db,"colaboradores",id)); colaboradores=colaboradores.filter(c=>c.id!==id); renderColaboradores(); }}
 
-/* LIMPAR TODOS OS PONTOS */
-document.getElementById('limparTodosBtn').onclick = async () => {
-  if (confirm("Deseja realmente excluir todos os pontos?")) {
-    pontos = [];
-    renderEntradasSaidas();
-    const col = await getDocs(collection(db, "pontos"));
-    for (let docSnap of col.docs) { await deleteDoc(doc(db, "pontos", docSnap.id)); }
-  }
-};
+/* Limpar pontos */
+document.getElementById('limparTodosBtn').onclick=async ()=>{ if(confirm("Limpar todos os pontos?")){ for(const p of pontos) await deleteDoc(doc(db,"pontos",p.id)); pontos=[]; renderEntradasSaidas(); }}
 
-/* CALCULAR HORAS */
-function calcularHoras() {
-  const horasBody = document.getElementById('horasBody'); const totalHorasCell = document.getElementById('totalHoras');
-  horasBody.innerHTML = ''; let dados = {}, totalGeral = 0;
-  pontos.forEach(p => { if (!dados[p.nome]) dados[p.nome] = {}; if (!dados[p.nome][p.data]) dados[p.nome][p.data] = []; dados[p.nome][p.data].push(p); });
-  Object.keys(dados).forEach(nome => { Object.keys(dados[nome]).forEach(data => {
-    let reg = dados[nome][data].sort((a,b) => new Date(a.horarioISO) - new Date(b.horarioISO));
-    let entrada = null, total = 0;
-    reg.forEach(r => { const hora = new Date(r.horarioISO); if(r.tipo==='Entrada') entrada=hora; if(r.tipo==='Saída' && entrada){ total+=(hora-entrada)/3600000; entrada=null; } });
-    totalGeral+=total;
-    const tr=document.createElement('tr'); tr.innerHTML=`<td>${nome}</td><td>${data}</td><td>${total.toFixed(2)} h</td>`; horasBody.appendChild(tr);
-  }); });
-  totalHorasCell.textContent = totalGeral.toFixed(2)+' h';
-}
-
-/* DOWNLOAD EXCEL (Entradas, Saídas e Horas Trabalhadas) */
-document.getElementById('baixarBtn').onclick = () => {
+/* Download Excel com Horas em Minutos */
+document.getElementById('baixarBtn').onclick=()=>{
   const entradas=[['#','ID Colab','Nome','Data','Hora']];
   pontos.filter(p=>p.tipo==='Entrada').forEach((p,i)=>entradas.push([i+1,p.idColab,p.nome,p.data,p.hora]));
   const saidas=[['#','ID Colab','Nome','Data','Hora']];
   pontos.filter(p=>p.tipo==='Saída').forEach((p,i)=>saidas.push([i+1,p.idColab,p.nome,p.data,p.hora]));
   const horas=[['Funcionário','Data','Horas Trabalhadas']];
-  let dados={};
-  pontos.forEach(p=>{ if(!dados[p.nome]) dados[p.nome]={}; if(!dados[p.nome][p.data]) dados[p.nome][p.data]=[]; dados[p.nome][p.data].push(p); });
+  let dados={}; pontos.forEach(p=>{ if(!dados[p.nome]) dados[p.nome]={}; if(!dados[p.nome][p.data]) dados[p.nome][p.data]=[]; dados[p.nome][p.data].push(p); });
   Object.keys(dados).forEach(nome=>{ Object.keys(dados[nome]).forEach(data=>{
-    let reg=dados[nome][data].sort((a,b)=>new Date(a.horarioISO)-new Date(b.horarioISO));
-    let entrada=null,total=0; reg.forEach(r=>{ const hora=new Date(r.horarioISO); if(r.tipo==='Entrada') entrada=hora; if(r.tipo==='Saída'&&entrada){total+=(hora-entrada)/3600000;entrada=null;} });
-    horas.push([nome,data,total.toFixed(2)+' h']);
-  }); });
+    let registros=dados[nome][data].sort((a,b)=>new Date(a.horarioISO)-new Date(b.horarioISO));
+    let entrada=null,totalMs=0;
+    registros.forEach(r=>{ const hora=new Date(r.horarioISO); if(r.tipo==='Entrada') entrada=hora; if(r.tipo==='Saída' && entrada){ totalMs+=hora-entrada; entrada=null; } });
+    const h=Math.floor(totalMs/3600000); const m=Math.floor((totalMs%3600000)/60000);
+    horas.push([nome,data,`${h} h ${m} min`]);
+  })});
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(entradas),'Entradas');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(saidas),'Saídas');
