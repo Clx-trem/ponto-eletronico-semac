@@ -411,7 +411,7 @@ function baterSaidaAutomatica() {
   const agora = new Date();
   const horaAtual = agora.getHours();
   const minutoAtual = agora.getMinutes();
-  if (horaAtual === 20 && minutoAtual === 53) {
+  if (horaAtual === ** && minutoAtual === **) {
     colaboradores.forEach(c => {
       const pontosHoje = pontos.filter(p => p.idColab === c.id && p.data === agora.toLocaleDateString('pt-BR'));
       const temSaida = pontosHoje.some(p => p.tipo === 'Saída');
