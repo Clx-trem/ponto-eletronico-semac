@@ -49,7 +49,7 @@
     <label style="font-size:13px"><input type="checkbox" id="remember"> Lembrar login</label><br>
     <button id="loginBtn" class="add" style="width:92%;margin-top:10px">Entrar</button>
     <p id="loginMsg" style="color:crimson;margin-top:8px;height:18px"></p>
-    <p style="font-size:12px;color:var(--muted);margin-top:8px">Usuário: <b>CLX</b> / Senha: <b>02072007</b></p>
+    <p style="font-size:12px;color:var(--muted);margin-top:8px">Usuário: <b>admin</b> / Senha: <b>12345</b></p>
   </div>
 </div>
 
