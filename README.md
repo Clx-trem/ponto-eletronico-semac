@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Ponto Eletrônico - Relatórios por Colaborador</title>
+<title>Ponto Eletrônico - IDs contínuos</title>
 <style>
   :root{
     --blue:#0b4f78; --green:#2e9b4f; --yellow:#ffb739; --red:#ef5350;
@@ -31,11 +31,9 @@
   .modal-content{background:#fff;padding:18px;border-radius:10px;width:95%;max-width:720px;box-shadow:0 10px 40px rgba(2,6,23,0.12)}
   .hidden{display:none}
   .flex-row{display:flex;gap:8px;align-items:center}
-  label{font-size:14px}
   @media(max-width:720px){ header{flex-direction:column;align-items:flex-start} .controls{width:100%;justify-content:space-between} table{font-size:13px} }
 </style>
 
-<!-- SheetJS para exportar Excel -->
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -60,9 +58,10 @@
   <div style="display:flex;gap:12px;align-items:center">
     <div id="clock">--:--:--</div>
     <div class="controls">
-      <button class="download" id="baixarBtn">Baixar Planilhas (Mês)</button>
-      <button class="download" id="gerarRelatorioBtn">Relatório Horas (Mês)</button>
-      <button class="secondary" id="limparTodosBtn">Limpar Pontos</button>
+      <button class="download" id="baixarBtn">Baixar Planilhas (mês atual)</button>
+      <button class="download" id="gerarRelatorioBtn">Relatório Horas (mês atual)</button>
+      <button class="secondary" id="limparTodosPontosBtn">Limpar Pontos</button>
+      <button class="secondary" id="limparTodosColabsBtn">Apagar Todos Colaboradores</button>
       <button class="secondary" id="logoutBtn">Sair</button>
     </div>
   </div>
@@ -70,13 +69,10 @@
 
 <main id="mainApp" class="hidden">
   <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
-    <label>Filtrar mês:
-      <input type="month" id="filtroMes">
-    </label>
     <label>Colaborador:
       <select id="colabSelect" style="padding:8px;border-radius:6px;border:1px solid #d1d5db"></select>
     </label>
-    <button class="secondary" id="verRelatorioColabBtn">Ver Relatório do Colaborador</button>
+    <button class="secondary" id="verRelatorioColabBtn">Ver Relatório Colaborador</button>
     <button class="download" id="exportRelatorioColabBtn">Exportar Relatório Colaborador</button>
   </div>
 
@@ -94,19 +90,19 @@
     <tbody id="colabBody"></tbody>
   </table>
 
-  <h3>Entradas Registradas</h3>
+  <h3>Entradas Registradas (mês atual)</h3>
   <table id="entradasTable">
     <thead><tr><th>#</th><th>ID Colab</th><th>Nome</th><th>Data</th><th>Hora</th><th>Ações</th></tr></thead>
     <tbody id="entradasBody"></tbody>
   </table>
 
-  <h3>Saídas Registradas</h3>
+  <h3>Saídas Registradas (mês atual)</h3>
   <table id="saidasTable">
     <thead><tr><th>#</th><th>ID Colab</th><th>Nome</th><th>Data</th><th>Hora</th><th>Ações</th></tr></thead>
     <tbody id="saidasBody"></tbody>
   </table>
 
-  <h3>Resumo de Horas Trabalhadas</h3>
+  <h3>Resumo de Horas Trabalhadas (mês atual)</h3>
   <table id="horasTable">
     <thead><tr><th>Funcionário</th><th>Data</th><th>Horas Trabalhadas</th></tr></thead>
     <tbody id="horasBody"></tbody>
@@ -114,7 +110,6 @@
   </table>
 </main>
 
-<!-- Modal Colaborador -->
 <div id="colabModal" class="modal hidden">
   <div class="modal-content">
     <h3 id="colabModalTitle">Adicionar Colaborador</h3>
@@ -130,11 +125,10 @@
   </div>
 </div>
 
-<!-- Modal Relatório por Colaborador -->
 <div id="relColabModal" class="modal hidden">
   <div class="modal-content" style="max-width:900px">
-    <h3>Relatório por Colaborador</h3>
-    <div id="relColabContent"> <!-- conteúdo gerado dinamicamente --> </div>
+    <h3>Relatório por Colaborador (mês atual)</h3>
+    <div id="relColabContent"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
       <button class="secondary" id="closeRelColab">Fechar</button>
     </div>
@@ -142,11 +136,12 @@
 </div>
 
 <script type="module">
-/* ===== FIREBASE ===== */
+/* ---------- FIREBASE ---------- */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
-import { getFirestore, collection, getDocs, setDoc, doc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+import {
+  getFirestore, collection, getDocs, setDoc, doc, deleteDoc, onSnapshot, runTransaction
+} from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
-/* sua config (mantida) */
 const firebaseConfig = {
   apiKey: "AIzaSyCpBiFzqOod4K32cWMr5hfx13fw6LGcPVY",
   authDomain: "ponto-eletronico-f35f9.firebaseapp.com",
@@ -155,28 +150,25 @@ const firebaseConfig = {
   messagingSenderId: "208638350255",
   appId: "1:208638350255:web:63d016867a67575b5e155a"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-/* ===== estado ===== */
+/* ---------- Estado ---------- */
 let colaboradores = [];
 let pontos = [];
 let colabEmEdicao = null;
 
-/* elementos UI */
+/* UI elements */
 const loginScreen = document.getElementById('loginScreen');
 const mainApp = document.getElementById('mainApp');
-const filtroMesInput = document.getElementById('filtroMes');
 const colabSelect = document.getElementById('colabSelect');
-const relColabModal = document.getElementById('relColabModal');
-const relColabContent = document.getElementById('relColabContent');
+const filtroAtual = (() => { const d = new Date(); const m = String(d.getMonth()+1).padStart(2,'0'); return `${d.getFullYear()}-${m}`; })(); // "YYYY-MM"
 
-/* credenciais */
+/* credenciais fixas */
 const LOGIN_USER = 'CLX';
 const LOGIN_PASS = '02072007';
 
-/* ===== LOGIN ===== */
+/* ---------- LOGIN ---------- */
 document.getElementById('loginBtn').onclick = async () => {
   const u = document.getElementById('user').value.trim();
   const p = document.getElementById('pass').value.trim();
@@ -196,15 +188,15 @@ if (localStorage.getItem('autenticado') === '1') {
 }
 document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('autenticado'); location.reload(); };
 
-/* relógio */
+/* ---------- RELÓGIO ---------- */
 setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR',{hour12:false}); }, 1000);
 
-/* ===== Iniciar leituras Firestore e onSnapshot ===== */
+/* ---------- LEITURAS FIRESTORE ---------- */
 async function iniciarLeituras(){
   document.getElementById('status').textContent = "Carregando...";
-  const colSnap = await getDocs(collection(db,"colaboradores"));
+  const colSnap = await getDocs(collection(db, "colaboradores"));
   colaboradores = colSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const ptSnap = await getDocs(collection(db,"pontos"));
+  const ptSnap = await getDocs(collection(db, "pontos"));
   pontos = ptSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   renderAll();
 
@@ -223,7 +215,7 @@ async function iniciarLeituras(){
   });
 }
 
-/* ===== RENDER GERAL ===== */
+/* ---------- RENDER GERAL ---------- */
 function renderAll(){
   renderColaboradores();
   renderEntradasSaidas();
@@ -231,12 +223,31 @@ function renderAll(){
   popularColabSelect();
 }
 
-/* ===== busca colaboradores ===== */
+/* busca */
 document.getElementById('search').addEventListener('input', () => {
   renderColaboradores(document.getElementById('search').value.toLowerCase());
 });
 
-/* ===== render colaboradores ===== */
+/* ---------- Obter próximo ID via transação (contagem contínua) ---------- */
+/* Usa documento meta/counters { lastId: number } para garantir contagem contínua */
+async function obterProximoIdNum() {
+  const counterRef = doc(db, 'meta', 'counters');
+  // runTransaction garante que dois clientes concorrentes não atribuam o mesmo id
+  const next = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(counterRef);
+    let last = 0;
+    if (snap.exists()) {
+      const data = snap.data();
+      last = Number(data.lastId) || 0;
+    }
+    const novo = last + 1;
+    tx.set(counterRef, { lastId: novo }, { merge: true });
+    return novo;
+  });
+  return String(next);
+}
+
+/* ---------- RENDER COLABORADORES ---------- */
 function renderColaboradores(filtro = '') {
   const body = document.getElementById('colabBody');
   if (!body) return;
@@ -266,7 +277,7 @@ function renderColaboradores(filtro = '') {
     });
 }
 
-/* ===== modal colab ===== */
+/* ---------- Modal Colaborador ---------- */
 const colabModal = document.getElementById('colabModal');
 const colabModalTitle = document.getElementById('colabModalTitle');
 const nomeInput = document.getElementById('nomeInput');
@@ -300,16 +311,19 @@ document.getElementById('saveColab').onclick = async () => {
   const nome = nomeInput.value.trim();
   if (!nome) return alert('Informe o nome do colaborador');
   const obj = { nome, cargo:cargoInput.value.trim(), matricula:matriculaInput.value.trim(), email:emailInput.value.trim(), turno:turnoInput.value.trim() };
+
   if (colabEmEdicao && colabEmEdicao.id) {
-    await setDoc(doc(db,"colaboradores",colabEmEdicao.id), {...colabEmEdicao,...obj});
+    // edição mantém o mesmo id
+    await setDoc(doc(db,"colaboradores",colabEmEdicao.id), {...colabEmEdicao, ...obj});
   } else {
-    const newId = Date.now().toString();
+    // novo: pega próximo id via transação (continua contando pra sempre)
+    const newId = await obterProximoIdNum();
     await setDoc(doc(db,"colaboradores",newId), { id:newId, ...obj });
   }
   fecharModalColab();
 };
 
-/* ===== registrar ponto ===== */
+/* ---------- Registrar ponto ---------- */
 async function registrarPonto(idColab, tipo) {
   const c = colaboradores.find(x => x.id === idColab);
   if (!c) return alert("Colaborador não encontrado!");
@@ -320,30 +334,36 @@ async function registrarPonto(idColab, tipo) {
   await setDoc(doc(db,"pontos",p.id), p);
 }
 
-/* ===== render entradas/saidas com filtro por mês ===== */
-function renderEntradasSaidas(){
+/* ---------- Funções mês atual ---------- */
+function pontosDoMesAtual(pArray) {
+  const hoje = new Date();
+  const ano = String(hoje.getFullYear());
+  const mes = String(hoje.getMonth()+1).padStart(2,'0');
+  return pArray.filter(p => {
+    const [d,m,a] = p.data.split('/');
+    return a === ano && m === mes;
+  });
+}
+
+/* ---------- Entradas / Saídas (mês atual) ---------- */
+function renderEntradasSaidas() {
   const entBody = document.getElementById('entradasBody');
   const saiBody = document.getElementById('saidasBody');
   entBody.innerHTML = ''; saiBody.innerHTML = '';
 
-  const filtroMes = filtroMesInput.value; // ex: "2025-11"
-  const pontosFiltrados = pontos.filter(p => {
-    if (!filtroMes) return true;
-    const [anoFiltro, mesFiltro] = filtroMes.split('-');
-    const [d,m,a] = p.data.split('/');
-    return a === anoFiltro && m === mesFiltro;
-  });
+  const pts = pontosDoMesAtual(pontos);
 
-  pontosFiltrados.filter(p => p.tipo==='Entrada').forEach((p,i) => {
+  let eIdx=1, sIdx=1;
+  pts.filter(p => p.tipo === 'Entrada').forEach((p) => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${i+1}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`;
+    tr.innerHTML = `<td>${eIdx++}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`;
     tr.querySelector('.delP').onclick = () => excluirPonto(p.id);
     entBody.appendChild(tr);
   });
 
-  pontosFiltrados.filter(p => p.tipo==='Saída').forEach((p,i) => {
+  pts.filter(p => p.tipo === 'Saída').forEach((p) => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${i+1}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`;
+    tr.innerHTML = `<td>${sIdx++}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`;
     tr.querySelector('.delP').onclick = () => excluirPonto(p.id);
     saiBody.appendChild(tr);
   });
@@ -351,8 +371,8 @@ function renderEntradasSaidas(){
   calcularHoras();
 }
 
-/* ===== excluir ponto ===== */
-async function excluirPonto(id){
+/* ---------- Excluir ponto ---------- */
+async function excluirPonto(id) {
   if (confirm("Excluir este ponto permanentemente?")) {
     pontos = pontos.filter(p => p.id !== id);
     renderEntradasSaidas();
@@ -360,8 +380,8 @@ async function excluirPonto(id){
   }
 }
 
-/* ===== remover colaborador ===== */
-async function removerColab(id){
+/* ---------- Remover colaborador ---------- */
+async function removerColab(id) {
   if (confirm("Excluir colaborador permanentemente?")) {
     colaboradores = colaboradores.filter(c => c.id !== id);
     pontos = pontos.filter(p => p.idColab !== id);
@@ -369,25 +389,43 @@ async function removerColab(id){
     await deleteDoc(doc(db,"colaboradores", id));
     const pts = await getDocs(collection(db,"pontos"));
     for (let d of pts.docs) if (d.data().idColab === id) await deleteDoc(doc(db,"pontos", d.id));
+    // NÃO reiniciamos o contador aqui: o meta/counters mantém lastId
   }
 }
 
-/* ===== limpar todos os pontos ===== */
-document.getElementById('limparTodosBtn').onclick = async () => {
-  if (confirm("Deseja realmente excluir todos os pontos?")) {
-    pontos = []; renderEntradasSaidas();
-    const col = await getDocs(collection(db,"pontos"));
-    for (let docSnap of col.docs) await deleteDoc(doc(db,"pontos", docSnap.id));
-  }
-};
+/* ---------- Apagar todos colaboradores (mantém contador) ---------- */
+document.getElementById('limparTodosColabsBtn').onclick = async () => {
+  if (!confirm("Deseja apagar TODOS os colaboradores e seus pontos? Isto NÃO vai reiniciar o contador (IDs continuarão aumentando).")) return;
+  // apagar colaboradores
+  const col = await getDocs(collection(db,"colaboradores"));
+  for (let d of col.docs) await deleteDoc(doc(db,"colaboradores", d.id));
+  // apagar pontos
+  const pts = await getDocs(collection(db,"pontos"));
+  for (let d of pts.docs) await deleteDoc(doc(db,"pontos", d.id));
+  colaboradores = []; pontos = [];
+  renderAll();
+  alert('Todos os colaboradores e pontos foram apagados. O contador continuará de onde parou.');
+}
 
-/* ===== calcular horas (por dia) ===== */
-function calcularHoras(){
+/* ---------- Limpar todos os pontos (mantém colaboradores e contador) ---------- */
+document.getElementById('limparTodosPontosBtn').onclick = async () => {
+  if (!confirm("Deseja realmente excluir todos os pontos?")) return;
+  const col = await getDocs(collection(db,"pontos"));
+  for (let d of col.docs) await deleteDoc(doc(db,"pontos", d.id));
+  pontos = [];
+  renderEntradasSaidas();
+}
+
+/* ---------- Calcular horas (mês atual) ---------- */
+function calcularHoras() {
   const horasBody = document.getElementById('horasBody');
   const totalHorasCell = document.getElementById('totalHoras');
-  horasBody.innerHTML = ''; let dados = {}, totalGeral = 0;
+  horasBody.innerHTML = '';
+  let dados = {}, totalGeral = 0;
 
-  pontos.forEach(p => {
+  const pts = pontosDoMesAtual(pontos);
+
+  pts.forEach(p => {
     if (!dados[p.nome]) dados[p.nome] = {};
     if (!dados[p.nome][p.data]) dados[p.nome][p.data] = [];
     dados[p.nome][p.data].push(p);
@@ -395,131 +433,97 @@ function calcularHoras(){
 
   Object.keys(dados).forEach(nome => {
     Object.keys(dados[nome]).forEach(data => {
-      let reg = dados[nome][data].sort((a,b)=> new Date(a.horarioISO) - new Date(b.horarioISO));
+      let reg = dados[nome][data].sort((a,b) => new Date(a.horarioISO) - new Date(b.horarioISO));
       let entrada = null, total = 0;
-      reg.forEach(r=>{
+      reg.forEach(r => {
         const hora = new Date(r.horarioISO);
-        if (r.tipo==='Entrada') entrada = hora;
-        if (r.tipo==='Saída' && entrada) { total += (hora - entrada)/3600000; entrada = null; }
+        if (r.tipo === 'Entrada') entrada = hora;
+        if (r.tipo === 'Saída' && entrada) {
+          total += (hora - entrada) / 3600000;
+          entrada = null;
+        }
       });
       totalGeral += total;
-      let h = Math.floor(total); let m = Math.round((total - h)*60);
-      const tr = document.createElement('tr'); tr.innerHTML = `<td>${nome}</td><td>${data}</td><td>${h}h ${m}m</td>`; horasBody.appendChild(tr);
+      let h = Math.floor(total);
+      let m = Math.round((total - h) * 60);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${nome}</td><td>${data}</td><td>${h}h ${m}m</td>`;
+      horasBody.appendChild(tr);
     });
   });
 
-  let gh = Math.floor(totalGeral); let gm = Math.round((totalGeral - gh)*60);
+  let gh = Math.floor(totalGeral);
+  let gm = Math.round((totalGeral - gh) * 60);
   totalHorasCell.textContent = `${gh}h ${gm}m`;
 }
 
-/* ===== exportar Excel filtrado por mês (Entradas / Saídas) ===== */
+/* ---------- Exportar Excel (mês atual) ---------- */
 document.getElementById('baixarBtn').onclick = () => {
-  const filtroMes = filtroMesInput.value;
+  const pts = pontosDoMesAtual(pontos);
   const entradas = [['#','ID Colab','Nome','Data','Hora']];
   const saidas = [['#','ID Colab','Nome','Data','Hora']];
-  let eIndex=1, sIndex=1;
-  pontos.filter(p=>{
-    if(!filtroMes) return true;
-    const [ano, mes] = filtroMes.split('-');
-    const [d,m,a] = p.data.split('/');
-    return a===ano && m===mes;
-  }).forEach(p=>{
-    if(p.tipo==='Entrada') entradas.push([eIndex++, p.idColab, p.nome, p.data, p.hora]);
-    if(p.tipo==='Saída') saidas.push([sIndex++, p.idColab, p.nome, p.data, p.hora]);
+  let e=1, s=1;
+  pts.forEach(p => {
+    if (p.tipo === 'Entrada') entradas.push([e++, p.idColab, p.nome, p.data, p.hora]);
+    if (p.tipo === 'Saída') saidas.push([s++, p.idColab, p.nome, p.data, p.hora]);
   });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(entradas), 'Entradas');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(saidas), 'Saídas');
-  XLSX.writeFile(wb, 'Pontos_Filtrados.xlsx');
+  XLSX.writeFile(wb, `Pontos_${filtroAtual}.xlsx`);
 };
 
-/* ===== gerar relatório geral semanal/mensal (export) ===== */
+/* ---------- Relatório Geral Semanal/Mensal (mês atual) ---------- */
 document.getElementById('gerarRelatorioBtn').onclick = () => {
-  const filtroMes = filtroMesInput.value;
-  const relatorio = {};
-  function getMonday(d){ const date = new Date(d); const day = date.getDay(); const diff = date.getDate() - day + (day===0? -6:1); const mon=new Date(date.setDate(diff)); mon.setHours(0,0,0,0); return mon; }
-
-  let pontosFiltrados = pontos.slice().sort((a,b)=> new Date(a.horarioISO) - new Date(b.horarioISO));
-  pontosFiltrados = pontosFiltrados.filter(p => {
-    if (!filtroMes) return true;
-    const [ano, mes] = filtroMes.split('-'); const [d,m,a] = p.data.split('/');
-    return a===ano && m===mes;
-  });
-
+  const pts = pontosDoMesAtual(pontos).slice().sort((a,b)=> new Date(a.horarioISO) - new Date(b.horarioISO));
+  const rel = {};
+  function getMonday(d){ const date = new Date(d); const day = date.getDay(); const diff = date.getDate() - day + (day===0? -6:1); const m = new Date(date.setDate(diff)); m.setHours(0,0,0,0); return m; }
   const byPerson = {};
-  pontosFiltrados.forEach(p => { if(!byPerson[p.nome]) byPerson[p.nome]=[]; byPerson[p.nome].push(p); });
-
-  Object.keys(byPerson).forEach(nome=>{
-    relatorio[nome] = { semanal:{}, mensal:0 };
-    const regs = byPerson[nome].slice().sort((a,b)=> new Date(a.horarioISO) - new Date(b.horarioISO));
+  pts.forEach(p => { if (!byPerson[p.nome]) byPerson[p.nome]=[]; byPerson[p.nome].push(p); });
+  Object.keys(byPerson).forEach(nome => {
+    rel[nome] = { semanal:{}, mensal:0 };
+    const regs = byPerson[nome].slice().sort((a,b)=> new Date(a.horarioISO)-new Date(b.horarioISO));
     let entrada = null;
-    regs.forEach(r=>{
+    regs.forEach(r => {
       const dt = new Date(r.horarioISO);
-      if (r.tipo==='Entrada') entrada = dt;
-      else if (r.tipo==='Saída' && entrada){
-        const horas = (dt - entrada)/3600000;
+      if (r.tipo === 'Entrada') entrada = dt;
+      else if (r.tipo === 'Saída' && entrada) {
+        const h = (dt - entrada)/3600000;
         const monday = getMonday(entrada).toLocaleDateString('pt-BR');
-        relatorio[nome].semanal[monday] = (relatorio[nome].semanal[monday]||0) + horas;
-        relatorio[nome].mensal += horas;
+        rel[nome].semanal[monday] = (rel[nome].semanal[monday] || 0) + h;
+        rel[nome].mensal += h;
         entrada = null;
       }
     });
   });
-
-  // montar planilha e exportar
-  const wsData = [['Funcionário','Semana (segunda)','Horas Semana','Total Mensal']];
-  Object.keys(relatorio).forEach(nome=>{
-    const semanas = Object.keys(relatorio[nome].semanal).sort((a,b)=> {
+  const ws = [['Funcionário','Semana (segunda)','Horas Semana','Total Mensal']];
+  Object.keys(rel).forEach(nome => {
+    const semanas = Object.keys(rel[nome].semanal).sort((a,b)=> {
       const pa = a.split('/').reverse().join('-'); const pb = b.split('/').reverse().join('-'); return new Date(pa)-new Date(pb);
     });
-    if(semanas.length===0){
-      wsData.push([nome,'-','-', `${Math.floor(relatorio[nome].mensal)}h ${Math.round((relatorio[nome].mensal-Math.floor(relatorio[nome].mensal))*60)}m`]);
-    } else {
-      semanas.forEach(sk=>{
-        const h = relatorio[nome].semanal[sk];
-        wsData.push([nome, sk, `${Math.floor(h)}h ${Math.round((h-Math.floor(h))*60)}m`, '']);
+    if (semanas.length === 0) ws.push([nome,'-','-', `${Math.floor(rel[nome].mensal)}h ${Math.round((rel[nome].mensal-Math.floor(rel[nome].mensal))*60)}m`]);
+    else {
+      semanas.forEach(sk => {
+        const h = rel[nome].semanal[sk];
+        ws.push([nome, sk, `${Math.floor(h)}h ${Math.round((h-Math.floor(h))*60)}m`, '']);
       });
-      wsData.push([nome, 'Total Mês','', `${Math.floor(relatorio[nome].mensal)}h ${Math.round((relatorio[nome].mensal-Math.floor(relatorio[nome].mensal))*60)}m`]);
+      ws.push([nome, 'Total Mês', '', `${Math.floor(rel[nome].mensal)}h ${Math.round((rel[nome].mensal-Math.floor(rel[nome].mensal))*60)}m`]);
     }
   });
-
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wsData), 'Relatorio_Horas');
-  XLSX.writeFile(wb, 'Relatorio_Horas.xlsx');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ws), 'Relatorio_Horas');
+  XLSX.writeFile(wb, `Relatorio_Horas_${filtroAtual}.xlsx`);
 };
 
-/* ===== Relatório por colaborador: visualizar e exportar ===== */
-
-/* popula select de colaboradores */
-function popularColabSelect(){
-  colabSelect.innerHTML = '<option value="">-- selecione --</option>';
-  colaboradores.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.nome || c.id;
-    opt.textContent = c.nome || `${c.id}`;
-    colabSelect.appendChild(opt);
-  });
-}
-
-/* função util: segunda da semana */
+/* ---------- Relatório por colaborador (visualizar/exportar) ---------- */
 function getMonday(d) {
-  const date = new Date(d);
-  const day = date.getDay();
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(date.setDate(diff));
-  monday.setHours(0,0,0,0);
-  return monday;
+  const date = new Date(d); const day = date.getDay(); const diff = date.getDate() - day + (day === 0 ? -6 : 1); const monday = new Date(date.setDate(diff)); monday.setHours(0,0,0,0); return monday;
 }
-
-/* gerar relatório em memória para um colaborador */
-function gerarRelatorioPorColaborador(nome, filtroMes){
-  const rel = { semanal: {}, mensal: 0, nome };
-  let regs = pontos.slice().filter(p => p.nome === nome).sort((a,b)=> new Date(a.horarioISO)-new Date(b.horarioISO));
-  if (filtroMes) {
-    regs = regs.filter(p => { const [anoFiltro, mesFiltro] = filtroMes.split('-'); const [d,m,a] = p.data.split('/'); return a===anoFiltro && m===mesFiltro; });
-  }
+function gerarRelatorioPorColaborador(nome) {
+  const rel = { semanal:{}, mensal:0, nome };
+  const regsAll = pontosDoMesAtual(pontos).filter(p => p.nome === nome).sort((a,b)=> new Date(a.horarioISO)-new Date(b.horarioISO));
   let entrada = null;
-  regs.forEach(r => {
+  regsAll.forEach(r => {
     const dt = new Date(r.horarioISO);
     if (r.tipo === 'Entrada') entrada = dt;
     else if (r.tipo === 'Saída' && entrada) {
@@ -532,79 +536,61 @@ function gerarRelatorioPorColaborador(nome, filtroMes){
   });
   return rel;
 }
-
-/* mostrar modal com relatório do colaborador */
 document.getElementById('verRelatorioColabBtn').onclick = () => {
   const nome = colabSelect.value;
   if (!nome) return alert('Selecione um colaborador');
-  const filtroMes = filtroMesInput.value;
-  const rel = gerarRelatorioPorColaborador(nome, filtroMes);
-  // montar HTML
+  const rel = gerarRelatorioPorColaborador(nome);
   let html = `<p><b>Colaborador:</b> ${rel.nome}</p>`;
   html += `<table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f3f4f6"><th>Semana (segunda)</th><th>Horas</th></tr></thead><tbody>`;
-  const semanas = Object.keys(rel.semanal).sort((a,b)=> {
-    const pa = a.split('/').reverse().join('-'); const pb = b.split('/').reverse().join('-'); return new Date(pa)-new Date(pb);
-  });
-  if (semanas.length === 0) html += `<tr><td colspan="2">Sem registros no período</td></tr>`;
-  else semanas.forEach(sk => {
-    const h = rel.semanal[sk]; html += `<tr><td>${sk}</td><td>${Math.floor(h)}h ${Math.round((h-Math.floor(h))*60)}m</td></tr>`;
-  });
+  const semanas = Object.keys(rel.semanal).sort((a,b)=> { const pa=a.split('/').reverse().join('-'); const pb=b.split('/').reverse().join('-'); return new Date(pa)-new Date(pb); });
+  if (semanas.length === 0) html += `<tr><td colspan="2">Sem registros no mês atual</td></tr>`;
+  else semanas.forEach(sk => { const h = rel.semanal[sk]; html += `<tr><td>${sk}</td><td>${Math.floor(h)}h ${Math.round((h-Math.floor(h))*60)}m</td></tr>`; });
   html += `</tbody><tfoot><tr style="background:#fbfdfe"><td><b>Total mês</b></td><td><b>${Math.floor(rel.mensal)}h ${Math.round((rel.mensal-Math.floor(rel.mensal))*60)}m</b></td></tr></tfoot></table>`;
-  relColabContent.innerHTML = html;
-  relColabModal.classList.remove('hidden');
+  document.getElementById('relColabContent').innerHTML = html;
+  document.getElementById('relColabModal').classList.remove('hidden');
 };
+document.getElementById('closeRelColab').onclick = () => document.getElementById('relColabModal').classList.add('hidden');
 
-document.getElementById('closeRelColab').onclick = () => relColabModal.classList.add('hidden');
-
-/* exportar relatório do colaborador para Excel */
 document.getElementById('exportRelatorioColabBtn').onclick = () => {
   const nome = colabSelect.value;
   if (!nome) return alert('Selecione um colaborador');
-  const filtroMes = filtroMesInput.value;
-  const rel = gerarRelatorioPorColaborador(nome, filtroMes);
-
-  const ws = [['Semana (segunda)','Horas Semana'],];
-  const semanas = Object.keys(rel.semanal).sort((a,b)=> {
-    const pa = a.split('/').reverse().join('-'); const pb = b.split('/').reverse().join('-'); return new Date(pa)-new Date(pb);
-  });
-  semanas.forEach(sk => {
-    const h = rel.semanal[sk];
-    ws.push([sk, `${Math.floor(h)}h ${Math.round((h-Math.floor(h))*60)}m`]);
-  });
+  const rel = gerarRelatorioPorColaborador(nome);
+  const ws = [['Semana (segunda)','Horas Semana']];
+  const semanas = Object.keys(rel.semanal).sort((a,b)=> { const pa=a.split('/').reverse().join('-'); const pb=b.split('/').reverse().join('-'); return new Date(pa)-new Date(pb); });
+  semanas.forEach(sk => { const h = rel.semanal[sk]; ws.push([sk, `${Math.floor(h)}h ${Math.round((h-Math.floor(h))*60)}m`]); });
   ws.push(['Total mês', `${Math.floor(rel.mensal)}h ${Math.round((rel.mensal-Math.floor(rel.mensal))*60)}m`]);
-
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ws), 'Relatorio_Colaborador');
-  XLSX.writeFile(wb, `Relatorio_${nome.replace(/\s+/g,'_')}.xlsx`);
+  XLSX.writeFile(wb, `Relatorio_${nome.replace(/\s+/g,'_')}_${filtroAtual}.xlsx`);
 };
 
-/* ===== saída automática às 20:00 ===== */
+/* ---------- Auto saída 20:00 ---------- */
 function baterSaidaAutomatica(){
-  const agora = new Date(); const h=agora.getHours(), m=agora.getMinutes();
-  if (h===20 && m===0){
-    colaboradores.forEach(c=>{
+  const agora = new Date(); const h = agora.getHours(), m = agora.getMinutes();
+  if (h === 20 && m === 0) {
+    colaboradores.forEach(c => {
       const hoje = agora.toLocaleDateString('pt-BR');
-      const pontosHoje = pontos.filter(p => p.idColab===c.id && p.data===hoje);
-      const temEntrada = pontosHoje.some(p=>p.tipo==='Entrada');
-      const temSaida = pontosHoje.some(p=>p.tipo==='Saída');
-      if (temEntrada && !temSaida) registrarPonto(c.id,'Saída');
+      const pontosHoje = pontos.filter(p => p.idColab === c.id && p.data === hoje);
+      const temEntrada = pontosHoje.some(p => p.tipo === 'Entrada');
+      const temSaida = pontosHoje.some(p => p.tipo === 'Saída');
+      if (temEntrada && !temSaida) registrarPonto(c.id, 'Saída');
     });
   }
 }
 setInterval(baterSaidaAutomatica, 60000);
 
-/* ===== popular select ao carregar ===== */
-function inicializarUI(){
-  popularColabSelect();
-}
+/* ---------- popular select ---------- */
 function popularColabSelect(){
   colabSelect.innerHTML = '<option value="">-- selecione --</option>';
   colaboradores.forEach(c => {
-    const opt = document.createElement('option'); opt.value = c.nome || c.id; opt.textContent = c.nome || c.id; colabSelect.appendChild(opt);
+    const opt = document.createElement('option'); opt.value = c.nome || c.id; opt.textContent = `${c.id} - ${c.nome || c.id}`; colabSelect.appendChild(opt);
   });
 }
 
-/* inicializa */
+/* ---------- inicialização UI ---------- */
+function inicializarUI(){
+  popularColabSelect();
+}
 inicializarUI();
 
 </script>
