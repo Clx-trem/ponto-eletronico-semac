@@ -48,15 +48,13 @@
 <div id="loginScreen" style="position:fixed;inset:0;background:var(--blue);display:flex;align-items:center;justify-content:center;z-index:9999">
   <div style="background:#fff;padding:26px;border-radius:10px;width:92%;max-width:360px;text-align:center">
     <h2 style="margin:0 0 8px 0;color:var(--blue)">Login do Sistema</h2>
-
-    <!-- Campos visíveis para digitar login/senha -->
-    <input id="userVisible" placeholder="Usuário" style="width:92%;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #e5e7eb"><br>
-    <input id="passVisible" type="password" placeholder="Senha" style="width:92%;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #e5e7eb"><br>
-
+    <!-- campos visíveis para digitar (credenciais reais NÃO mostradas em texto) -->
+    <input id="user" placeholder="Usuário" style="width:92%;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #e5e7eb"><br>
+    <input id="pass" type="password" placeholder="Senha" style="width:92%;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #e5e7eb"><br>
     <label style="font-size:13px"><input type="checkbox" id="remember"> Lembrar login</label><br>
     <button id="loginBtn" class="add" style="width:92%;margin-top:10px">Entrar</button>
     <p id="loginMsg" style="color:crimson;margin-top:8px;height:18px"></p>
-    <!-- linha com Usuário/Senha removida, não aparece na tela -->
+    <!-- nota: removemos a dica de usuário/senha da interface -->
   </div>
 </div>
 
@@ -69,6 +67,7 @@
     <div id="clock">--:--:--</div>
     <div class="controls">
       <button class="download" id="baixarBtn">Baixar Planilhas</button>
+      <button class="download" id="gerarRelatorioBtn">Relatório Horas</button>
       <button class="secondary" id="limparTodosBtn">Limpar Pontos</button>
       <button class="secondary" id="logoutBtn">Sair</button>
     </div>
@@ -76,7 +75,14 @@
 </header>
 
 <main id="mainApp" class="hidden">
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+    <label>Filtrar mês:
+      <input type="month" id="filtroMes">
+    </label>
+  </div>
+
   <input id="search" class="search" placeholder="🔍 Pesquisar colaborador por nome, cargo, matrícula ou e-mail">
+
   <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px">
     <h3 style="margin:0">Colaboradores</h3>
     <div style="display:flex;gap:8px">
@@ -85,9 +91,7 @@
   </div>
 
   <table id="colabTable">
-    <thead>
-      <tr><th>#</th><th>ID</th><th>Nome</th><th>Cargo</th><th>Matrícula / E-mail</th><th>Turno</th><th>Ações</th></tr>
-    </thead>
+    <thead><tr><th>#</th><th>ID</th><th>Nome</th><th>Cargo</th><th>Matrícula / E-mail</th><th>Turno</th><th>Ações</th></tr></thead>
     <tbody id="colabBody"></tbody>
   </table>
 
@@ -127,11 +131,10 @@
 </div>
 
 <script type="module">
-/* Firebase + Firestore */
+/* -------- FIREBASE -------- */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
 import { getFirestore, collection, getDocs, setDoc, doc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
-/* Mantenha sua configuração real aqui (já estava no seu código original) */
 const firebaseConfig = {
   apiKey: "AIzaSyCpBiFzqOod4K32cWMr5hfx13fw6LGcPVY",
   authDomain: "ponto-eletronico-f35f9.firebaseapp.com",
@@ -144,7 +147,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-/* estado */
+/* -------- estado -------- */
 let colaboradores = [];
 let pontos = [];
 let colabEmEdicao = null;
@@ -152,14 +155,17 @@ let colabEmEdicao = null;
 /* elementos */
 const loginScreen = document.getElementById('loginScreen');
 const mainApp = document.getElementById('mainApp');
+const filtroMesInput = document.getElementById('filtroMes');
 
-/* LOGIN (mantém usuário/senha reais no código, mas não exibidos) */
+/* -------- LOGIN -------- */
+/* credenciais fixas (mantidas do seu código original) */
+const LOGIN_USER = 'CLX';
+const LOGIN_PASS = '02072007';
+
 document.getElementById('loginBtn').onclick = async () => {
-  const u = document.getElementById('userVisible').value.trim();
-  const p = document.getElementById('passVisible').value.trim();
-
-  // credenciais válidas (hardcoded como no seu código original)
-  if (u === 'CLX' && p === '02072007') {
+  const u = document.getElementById('user').value.trim();
+  const p = document.getElementById('pass').value.trim();
+  if (u === LOGIN_USER && p === LOGIN_PASS) {
     loginScreen.style.display = 'none';
     mainApp.classList.remove('hidden');
     if (document.getElementById('remember').checked) localStorage.setItem('autenticado','1');
@@ -169,37 +175,37 @@ document.getElementById('loginBtn').onclick = async () => {
   }
 };
 
-/* Se já estiver autenticado */
 if (localStorage.getItem('autenticado') === '1') {
   loginScreen.style.display = 'none';
   mainApp.classList.remove('hidden');
   iniciarLeituras();
 }
 
-/* logout */
-document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('autenticado'); location.reload(); };
+document.getElementById('logoutBtn').onclick = () => {
+  localStorage.removeItem('autenticado');
+  location.reload();
+};
 
-/* relogio */
+/* -------- RELÓGIO -------- */
 setInterval(() => {
   document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR', { hour12: false });
 }, 1000);
 
-/* iniciar leituras do Firestore e manter onSnapshot */
+/* -------- INICIAR LEITURAS (Firestore) -------- */
 async function iniciarLeituras(){
   document.getElementById('status').textContent = "Carregando...";
-  // carrega inicialmente
   const colSnap = await getDocs(collection(db, "colaboradores"));
   colaboradores = colSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   const ptSnap = await getDocs(collection(db, "pontos"));
   pontos = ptSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   renderAll();
 
-  // atualizações em tempo real
   onSnapshot(collection(db, "colaboradores"), snap => {
     colaboradores = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderColaboradores(document.getElementById('search').value.toLowerCase());
     document.getElementById('status').textContent = "Online • Firebase";
   });
+
   onSnapshot(collection(db, "pontos"), snap => {
     pontos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderEntradasSaidas();
@@ -208,7 +214,7 @@ async function iniciarLeituras(){
   });
 }
 
-/* Renderizações */
+/* -------- RENDER GERAL -------- */
 function renderAll(){
   renderColaboradores();
   renderEntradasSaidas();
@@ -219,6 +225,7 @@ document.getElementById('search').addEventListener('input', () => {
   renderColaboradores(document.getElementById('search').value.toLowerCase());
 });
 
+/* -------- RENDER COLABORADORES -------- */
 function renderColaboradores(filtro = '') {
   const body = document.getElementById('colabBody');
   if (!body) return;
@@ -247,14 +254,14 @@ function renderColaboradores(filtro = '') {
           <button class="danger delBtn">Excluir</button>
         </td>`;
       tr.querySelector('.btnEntrada').onclick = () => registrarPonto(c.id, 'Entrada');
-      tr.querySelector('.btnSaida').onclick = () => registrarPonto(c.id, 'Saída'); // sem restrição
+      tr.querySelector('.btnSaida').onclick = () => registrarPonto(c.id, 'Saída');
       tr.querySelector('.editBtn').onclick = () => abrirModalEditar(c);
       tr.querySelector('.delBtn').onclick = () => removerColab(c.id);
       body.appendChild(tr);
     });
 }
 
-/* Modal adicionar/editar */
+/* -------- MODAL COLABORADOR -------- */
 const colabModal = document.getElementById('colabModal');
 const colabModalTitle = document.getElementById('colabModalTitle');
 const nomeInput = document.getElementById('nomeInput');
@@ -305,6 +312,7 @@ document.getElementById('saveColab').onclick = async () => {
   fecharModalColab();
 };
 
+/* -------- REGISTRAR PONTO -------- */
 async function registrarPonto(idColab, tipo) {
   const c = colaboradores.find(x => x.id === idColab);
   if (!c) return alert("Colaborador não encontrado!");
@@ -325,29 +333,39 @@ async function registrarPonto(idColab, tipo) {
   await setDoc(doc(db, "pontos", p.id), p);
 }
 
+/* -------- RENDER ENTRADAS / SAÍDAS (COM FILTRO MÊS) -------- */
 function renderEntradasSaidas() {
   const entBody = document.getElementById('entradasBody');
   const saiBody = document.getElementById('saidasBody');
   entBody.innerHTML = '';
   saiBody.innerHTML = '';
 
-  pontos.filter(p => p.tipo === 'Entrada').forEach((p, i) => {
+  const filtroMes = filtroMesInput.value; // ex: "2025-11" or ""
+  const pontosFiltrados = pontos.filter(p => {
+    if (!filtroMes) return true;
+    const [anoFiltro, mesFiltro] = filtroMes.split('-');
+    const [d, m, a] = p.data.split('/');
+    return a === anoFiltro && m === mesFiltro;
+  });
+
+  pontosFiltrados.filter(p => p.tipo === 'Entrada').forEach((p, i) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${i+1}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`;
     tr.querySelector('.delP').onclick = () => excluirPonto(p.id);
     entBody.appendChild(tr);
   });
 
-  pontos.filter(p => p.tipo === 'Saída').forEach((p, i) => {
+  pontosFiltrados.filter(p => p.tipo === 'Saída').forEach((p, i) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${i+1}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`;
     tr.querySelector('.delP').onclick = () => excluirPonto(p.id);
     saiBody.appendChild(tr);
   });
 
-  calcularHoras();
+  calcularHoras(); // recalcula com base no conjunto inteiro (calcularHoras usa pontos globais; mantemos)
 }
 
+/* -------- EXCLUIR PONTO -------- */
 async function excluirPonto(id) {
   if (confirm("Excluir este ponto permanentemente?")) {
     pontos = pontos.filter(p => p.id !== id);
@@ -356,6 +374,7 @@ async function excluirPonto(id) {
   }
 }
 
+/* -------- REMOVER COLABORADOR (e seus pontos) -------- */
 async function removerColab(id) {
   if (confirm("Excluir colaborador permanentemente?")) {
     colaboradores = colaboradores.filter(c => c.id !== id);
@@ -367,6 +386,7 @@ async function removerColab(id) {
   }
 }
 
+/* -------- LIMPAR TODOS OS PONTOS -------- */
 document.getElementById('limparTodosBtn').onclick = async () => {
   if (confirm("Deseja realmente excluir todos os pontos?")) {
     pontos = [];
@@ -376,12 +396,14 @@ document.getElementById('limparTodosBtn').onclick = async () => {
   }
 };
 
-// CALCULAR HORAS COM MINUTOS
+/* -------- CALCULAR HORAS (por dia; também calcula total geral) -------- */
 function calcularHoras() {
   const horasBody = document.getElementById('horasBody');
   const totalHorasCell = document.getElementById('totalHoras');
   horasBody.innerHTML = '';
   let dados = {}, totalGeral = 0;
+
+  // organizando por nome e data
   pontos.forEach(p => {
     if (!dados[p.nome]) dados[p.nome] = {};
     if (!dados[p.nome][p.data]) dados[p.nome][p.data] = [];
@@ -408,40 +430,135 @@ function calcularHoras() {
       horasBody.appendChild(tr);
     });
   });
+
   let gh = Math.floor(totalGeral);
   let gm = Math.round((totalGeral - gh)*60);
   totalHorasCell.textContent = `${gh}h ${gm}m`;
 }
 
-// DOWNLOAD EXCEL
+/* -------- EXPORTAR EXCEL (com filtro por mês) -------- */
 document.getElementById('baixarBtn').onclick = () => {
+  const filtroMes = filtroMesInput.value; // ex: "2025-11"
   const entradas = [['#','ID Colab','Nome','Data','Hora']];
-  pontos.filter(p => p.tipo === 'Entrada').forEach((p,i) => entradas.push([i+1,p.idColab,p.nome,p.data,p.hora]));
   const saidas = [['#','ID Colab','Nome','Data','Hora']];
-  pontos.filter(p => p.tipo === 'Saída').forEach((p,i) => saidas.push([i+1,p.idColab,p.nome,p.data,p.hora]));
+
+  // usar índice separado para entradas/saídas para numeração correta
+  let eIndex = 1, sIndex = 1;
+
+  pontos.filter(p => {
+    if (!filtroMes) return true;
+    const [ano, mes] = filtroMes.split('-');
+    const [d, m, a] = p.data.split('/');
+    return a === ano && m === mes;
+  }).forEach(p => {
+    if (p.tipo === 'Entrada') { entradas.push([eIndex++, p.idColab, p.nome, p.data, p.hora]); }
+    if (p.tipo === 'Saída') { saidas.push([sIndex++, p.idColab, p.nome, p.data, p.hora]); }
+  });
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(entradas), 'Entradas');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(saidas), 'Saídas');
-  XLSX.writeFile(wb, 'Pontos.xlsx');
+  XLSX.writeFile(wb, 'Pontos_Filtrados.xlsx');
 };
 
-// PONTO DE SAÍDA AUTOMÁTICO 20:00
+/* -------- GERAR RELATÓRIO SEMANAL / MENSAL E EXPORTAR -------- */
+document.getElementById('gerarRelatorioBtn').onclick = () => {
+  const filtroMes = filtroMesInput.value; // ex: "2025-11" or ''
+  // agruparemos por nome, por semana (início da semana: segunda-feira) e total mensal
+  const relatorio = {}; // { nome: { semanal: {semanaInicioStr: hours}, mensal: hours } }
+
+  // função pra obter data da segunda da semana da data passada
+  function getMonday(d) {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(date.setDate(diff));
+    monday.setHours(0,0,0,0);
+    return monday;
+  }
+
+  // preparar cópia dos pontos ordenados por horarioISO por pessoa e data
+  let pontosFiltrados = pontos.slice().sort((a,b)=> new Date(a.horarioISO) - new Date(b.horarioISO));
+
+  pontosFiltrados = pontosFiltrados.filter(p => {
+    if (!filtroMes) return true;
+    const [ano, mes] = filtroMes.split('-');
+    const [d, m, a] = p.data.split('/');
+    return a === ano && m === mes;
+  });
+
+  // vamos agrupar entradas/saídas por pessoa e por dia para calcular pares entrada->saída
+  // estratégia: para cada pessoa e dia, percorrer registros ordenados e parear entrada+saída
+  const byPerson = {};
+  pontosFiltrados.forEach(p => {
+    if (!byPerson[p.nome]) byPerson[p.nome] = [];
+    byPerson[p.nome].push(p);
+  });
+
+  Object.keys(byPerson).forEach(nome => {
+    relatorio[nome] = { semanal: {}, mensal: 0 };
+    const registros = byPerson[nome].slice().sort((a,b)=> new Date(a.horarioISO) - new Date(b.horarioISO));
+    let entrada = null;
+    registros.forEach(r => {
+      const dt = new Date(r.horarioISO);
+      if (r.tipo === 'Entrada') {
+        entrada = dt;
+      } else if (r.tipo === 'Saída' && entrada) {
+        const hours = (dt - entrada) / 3600000;
+        const monday = getMonday(entrada).toLocaleDateString('pt-BR');
+        relatorio[nome].semanal[monday] = (relatorio[nome].semanal[monday] || 0) + hours;
+        relatorio[nome].mensal += hours;
+        entrada = null;
+      }
+    });
+  });
+
+  // montar planilha (AOA)
+  const wsData = [['Funcionário','Semana (segunda)','Horas Semana','Total Mensal']];
+  Object.keys(relatorio).forEach(nome => {
+    const semanas = relatorio[nome].semanal;
+    const semanasKeys = Object.keys(semanas).sort((a,b)=> {
+      const pa = a.split('/').reverse().join('-');
+      const pb = b.split('/').reverse().join('-');
+      return new Date(pa) - new Date(pb);
+    });
+    if (semanasKeys.length === 0) {
+      wsData.push([nome, '-', '-', `${Math.floor(relatorio[nome].mensal)}h ${Math.round((relatorio[nome].mensal - Math.floor(relatorio[nome].mensal))*60)}m`]);
+    } else {
+      semanasKeys.forEach(sk => {
+        const h = semanas[sk];
+        wsData.push([nome, sk, `${Math.floor(h)}h ${Math.round((h - Math.floor(h))*60)}m`, '']);
+      });
+      // linha resumo mensal
+      wsData.push([nome, 'Total Mês', '', `${Math.floor(relatorio[nome].mensal)}h ${Math.round((relatorio[nome].mensal - Math.floor(relatorio[nome].mensal))*60)}m`]);
+    }
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wsData), 'Relatorio_Horas');
+  XLSX.writeFile(wb, 'Relatorio_Horas.xlsx');
+};
+
+/* -------- PONTO DE SAÍDA AUTOMÁTICO 20:00 -------- */
 function baterSaidaAutomatica() {
   const agora = new Date();
   const horaAtual = agora.getHours();
   const minutoAtual = agora.getMinutes();
-  // dispara às 20:00
   if (horaAtual === 20 && minutoAtual === 0) {
     colaboradores.forEach(c => {
       const pontosHoje = pontos.filter(p => p.idColab === c.id && p.data === agora.toLocaleDateString('pt-BR'));
-      const temSaida = pontosHoje.some(p => p.tipo === 'Saída');
       const temEntrada = pontosHoje.some(p => p.tipo === 'Entrada');
+      const temSaida = pontosHoje.some(p => p.tipo === 'Saída');
       if (temEntrada && !temSaida) registrarPonto(c.id, 'Saída');
     });
   }
 }
 setInterval(baterSaidaAutomatica, 60000);
 
+/* -------- Observadores de UI -------- */
+filtroMesInput.addEventListener('change', () => {
+  renderEntradasSaidas();
+});
 </script>
 </body>
 </html>
