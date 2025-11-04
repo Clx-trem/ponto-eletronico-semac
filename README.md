@@ -1,4 +1,3 @@
-<!doctype html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
@@ -33,10 +32,13 @@
   .flex-row{display:flex;gap:8px;align-items:center}
   @media(max-width:720px){ header{flex-direction:column;align-items:flex-start} .controls{width:100%;justify-content:space-between} table{font-size:13px} }
   /* pequenas melhorias para o modal de usuários */
-  #usuariosList { max-height:260px; overflow:auto; margin-bottom:10px; border:1px solid #eef2f6; border-radius:6px; padding:8px; background:#fafafa; }
+  #usuariosList { max-height:220px; overflow:auto; margin-bottom:10px; border:1px solid #eef2f6; border-radius:6px; padding:8px; background:#fafafa; }
   .usr-row{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #f1f5f9}
   /* ícone de engrenagem estilo simples */
   .gear { width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:transparent;border:none;color:#fff;font-size:18px }
+  /* acessos list */
+  #acessosList { max-height:300px; overflow:auto; border:1px solid #eef2f6; border-radius:6px; padding:8px; background:#fff; }
+  .acc-row{padding:8px;border-bottom:1px solid #f1f5f9;font-size:13px}
 </style>
 
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
@@ -156,10 +158,23 @@
       <!-- senha com asteriscos -->
       <input id="novaSenha" placeholder="Senha" type="password" style="padding:8px;border-radius:6px;border:1px solid #e5e7eb">
       <button class="add" id="addUsuarioBtn">Adicionar</button>
+      <button class="secondary" id="verAcessosBtn" style="margin-left:8px">Ver Acessos</button>
     </div>
 
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
       <button class="secondary" id="closeUsuarios">Fechar</button>
+      <button class="danger" id="limparAcessosBtn">Limpar Logs Acessos</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Acessos -->
+<div id="acessosModal" class="modal hidden">
+  <div class="modal-content" style="max-width:900px">
+    <h3>Logs de Acessos</h3>
+    <div id="acessosList">Carregando...</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="secondary" id="closeAcessos">Fechar</button>
     </div>
   </div>
 </div>
@@ -168,7 +183,7 @@
 /* ---------- FIREBASE ---------- */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
 import {
-  getFirestore, collection, getDocs, setDoc, doc, deleteDoc, onSnapshot, runTransaction
+  getFirestore, collection, getDocs, setDoc, doc, deleteDoc, onSnapshot, runTransaction, addDoc
 } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -219,6 +234,23 @@ async function validarCredenciaisLocal(u,p) {
   return { ok: false };
 }
 
+/* registra o acesso no Firestore (coleção 'acessos') */
+async function registrarAcesso(usuario) {
+  try {
+    const now = new Date();
+    const ua = navigator.userAgent || '';
+    // id automático via addDoc
+    await addDoc(collection(db, "acessos"), {
+      usuario,
+      horarioISO: now.toISOString(),
+      userAgent: ua,
+      ip: '' // ip não preenchido aqui (exigir serviço externo)
+    });
+  } catch (err) {
+    console.error('Erro ao registrar acesso:', err);
+  }
+}
+
 document.getElementById('loginBtn').onclick = async () => {
   const u = document.getElementById('user').value.trim();
   const p = document.getElementById('pass').value.trim();
@@ -226,6 +258,8 @@ document.getElementById('loginBtn').onclick = async () => {
   if (res.ok) {
     usuarioLogado = res.usuario;
     isAdmin = !!res.admin;
+    // registrar evento de acesso
+    registrarAcesso(usuarioLogado);
     // esconder login e mostrar app
     loginScreen.style.display = 'none';
     mainApp.classList.remove('hidden');
@@ -247,6 +281,7 @@ document.getElementById('loginBtn').onclick = async () => {
 if (localStorage.getItem('autenticado') === '1') {
   usuarioLogado = localStorage.getItem('usuarioLogado') || null;
   isAdmin = localStorage.getItem('isAdmin') === '1';
+  // registrarAcesso? não registrar automático ao recarregar a sessão armazenada (apenas em login novo)
   loginScreen.style.display = 'none';
   mainApp.classList.remove('hidden');
   document.getElementById('gerenciarAcessosBtn').style.display = isAdmin ? 'inline-block' : 'none';
@@ -734,6 +769,12 @@ const novaSenhaInput = document.getElementById('novaSenha');
 const addUsuarioBtn = document.getElementById('addUsuarioBtn');
 const closeUsuarios = document.getElementById('closeUsuarios');
 
+const verAcessosBtn = document.getElementById('verAcessosBtn');
+const acessosModal = document.getElementById('acessosModal');
+const acessosList = document.getElementById('acessosList');
+const closeAcessos = document.getElementById('closeAcessos');
+const limparAcessosBtn = document.getElementById('limparAcessosBtn');
+
 gerenciarAcessosBtn.onclick = () => {
   if (!isAdmin) return alert('Apenas o administrador pode gerenciar acessos.');
   usuariosModal.classList.remove('hidden');
@@ -802,6 +843,50 @@ addUsuarioBtn.onclick = async () => {
   novoUsuarioInput.value = '';
   novaSenhaInput.value = '';
   carregarUsuariosUI();
+};
+
+/* ---------- ACESSOS: visualizar e limpar ---------- */
+verAcessosBtn.onclick = async () => {
+  usuariosModal.classList.add('hidden');
+  acessosModal.classList.remove('hidden');
+  carregarAcessosUI();
+  // inscrever atualização em tempo real
+  onSnapshot(collection(db, "acessos"), snap => {
+    carregarAcessosUI(); // atualiza
+  });
+};
+closeAcessos.onclick = () => acessosModal.classList.add('hidden');
+
+/* carrega lista de acessos (mais recentes primeiro) */
+async function carregarAcessosUI() {
+  const snap = await getDocs(collection(db, "acessos"));
+  const docs = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b)=> new Date(b.horarioISO) - new Date(a.horarioISO));
+  if (docs.length === 0) {
+    acessosList.innerHTML = '<div style="padding:8px;color:#6b7280">Nenhum acesso registrado.</div>';
+    return;
+  }
+  acessosList.innerHTML = '';
+  docs.forEach(d => {
+    const dt = new Date(d.horarioISO);
+    const dtStr = dt.toLocaleString('pt-BR', { hour12:false });
+    const ua = (d.userAgent || '').slice(0,140);
+    const div = document.createElement('div');
+    div.className = 'acc-row';
+    div.innerHTML = `<div><b>${d.usuario}</b> — ${dtStr}</div><div style="color:#6b7280;font-size:12px">${ua}</div>`;
+    acessosList.appendChild(div);
+  });
+}
+
+/* limpar logs de acessos (apenas admin) */
+limparAcessosBtn.onclick = async () => {
+  if (!isAdmin) return alert('Apenas admin pode limpar logs.');
+  if (!confirm('Limpar todos os logs de acessos? Isso NÃO pode ser desfeito.')) return;
+  const snap = await getDocs(collection(db, "acessos"));
+  for (let d of snap.docs) {
+    await deleteDoc(doc(db, "acessos", d.id));
+  }
+  alert('Logs de acessos limpos.');
+  carregarAcessosUI();
 };
 
 </script>
