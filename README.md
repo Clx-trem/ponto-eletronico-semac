@@ -31,16 +31,12 @@
   .hidden{display:none}
   .flex-row{display:flex;gap:8px;align-items:center}
   @media(max-width:720px){ header{flex-direction:column;align-items:flex-start} .controls{width:100%;justify-content:space-between} table{font-size:13px} }
-  /* pequenas melhorias para o modal de usuários */
   #usuariosList { max-height:220px; overflow:auto; margin-bottom:10px; border:1px solid #eef2f6; border-radius:6px; padding:8px; background:#fafafa; }
   .usr-row{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #f1f5f9}
-  /* ícone de engrenagem estilo simples */
   .gear { width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:transparent;border:none;color:#fff;font-size:18px }
-  /* acessos list */
   #acessosList { max-height:300px; overflow:auto; border:1px solid #eef2f6; border-radius:6px; padding:8px; background:#fff; }
   .acc-row{padding:8px;border-bottom:1px solid #f1f5f9;font-size:13px}
 </style>
-
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -69,876 +65,487 @@
       <button class="download" id="gerarRelatorioBtn">Relatório Horas (mês atual)</button>
       <button class="secondary" id="limparTodosPontosBtn">Limpar Pontos</button>
       <button class="secondary" id="limparTodosColabsBtn">Apagar Todos Colaboradores</button>
-      <!-- botão novo: gerenciar acessos (apenas admin verá) com ícone de engrenagem -->
       <button class="gear secondary" id="gerenciarAcessosBtn" title="Gerenciar Logins" style="display:none">⚙️</button>
       <button class="secondary" id="logoutBtn">Sair</button>
     </div>
   </div>
 </header>
+<main>
+  <input type="text" id="searchInput" class="search" placeholder="Pesquisar colaborador...">
 
-<main id="mainApp" class="hidden">
-  <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
-    <label>Colaborador:
-      <select id="colabSelect" style="padding:8px;border-radius:6px;border:1px solid #d1d5db"></select>
-    </label>
-    <button class="secondary" id="verRelatorioColabBtn">Ver Relatório Colaborador</button>
-    <button class="download" id="exportRelatorioColabBtn">Exportar Relatório Colaborador</button>
-  </div>
-
-  <input id="search" class="search" placeholder="🔍 Pesquisar colaborador por nome, cargo, matrícula ou e-mail">
-
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px">
-    <h3 style="margin:0">Colaboradores</h3>
-    <div style="display:flex;gap:8px">
-      <button class="add" id="addColabBtn">Adicionar Colaborador</button>
-    </div>
-  </div>
-
-  <table id="colabTable">
-    <thead><tr><th>#</th><th>ID</th><th>Nome</th><th>Cargo</th><th>Matrícula / E-mail</th><th>Turno</th><th>Ações</th></tr></thead>
-    <tbody id="colabBody"></tbody>
-  </table>
-
-  <h3>Entradas Registradas (mês atual)</h3>
-  <table id="entradasTable">
-    <thead><tr><th>#</th><th>ID Colab</th><th>Nome</th><th>Data</th><th>Hora</th><th>Ações</th></tr></thead>
-    <tbody id="entradasBody"></tbody>
-  </table>
-
-  <h3>Saídas Registradas (mês atual)</h3>
-  <table id="saidasTable">
-    <thead><tr><th>#</th><th>ID Colab</th><th>Nome</th><th>Data</th><th>Hora</th><th>Ações</th></tr></thead>
-    <tbody id="saidasBody"></tbody>
-  </table>
-
-  <h3>Resumo de Horas Trabalhadas (mês atual)</h3>
-  <table id="horasTable">
-    <thead><tr><th>Funcionário</th><th>Data</th><th>Horas Trabalhadas</th></tr></thead>
-    <tbody id="horasBody"></tbody>
-    <tfoot><tr><td colspan="2"><b>Total Geral</b></td><td id="totalHoras">0h 0m 0s</td></tr></tfoot>
+  <table id="colaboradoresTable">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Nome</th>
+        <th>Departamento</th>
+        <th>Pontos</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody id="colaboradoresBody">
+      <!-- Linhas serão preenchidas pelo JS -->
+    </tbody>
   </table>
 </main>
 
-<!-- Modal Colaborador (mantido) -->
-<div id="colabModal" class="modal hidden">
+<!-- MODAL DE PONTOS -->
+<div id="modalPontos" class="modal hidden">
   <div class="modal-content">
-    <h3 id="colabModalTitle">Adicionar Colaborador</h3>
-    <input id="nomeInput" placeholder="Nome" style="width:100%;padding:8px;margin:6px 0;border-radius:6px;border:1px solid #e5e7eb"><br>
-    <input id="cargoInput" placeholder="Cargo" style="width:100%;padding:8px;margin:6px 0;border-radius:6px;border:1px solid #e5e7eb"><br>
-    <input id="matriculaInput" placeholder="Matrícula" style="width:100%;padding:8px;margin:6px 0;border-radius:6px;border:1px solid #e5e7eb"><br>
-    <input id="emailInput" placeholder="E-mail" style="width:100%;padding:8px;margin:6px 0;border-radius:6px;border:1px solid #e5e7eb"><br>
-    <input id="turnoInput" placeholder="Turno" style="width:100%;padding:8px;margin:6px 0;border-radius:6px;border:1px solid #e5e7eb"><br>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
-      <button class="secondary" id="cancelColab">Cancelar</button>
-      <button class="add" id="saveColab">Salvar</button>
-    </div>
+    <h3>Gerenciar Pontos de <span id="modalNomeColab"></span></h3>
+    <div id="pontosList"></div>
+    <button class="danger" id="limparPontosColabBtn">Limpar Pontos</button>
+    <button class="secondary" id="fecharModalPontosBtn">Fechar</button>
   </div>
 </div>
 
-<!-- Modal Relatório por Colaborador (mantido) -->
-<div id="relColabModal" class="modal hidden">
-  <div class="modal-content" style="max-width:900px">
-    <h3>Relatório por Colaborador (mês atual)</h3>
-    <div id="relColabContent"></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
-      <button class="secondary" id="closeRelColab">Fechar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Usuarios (novo) -->
-<div id="usuariosModal" class="modal hidden">
-  <div class="modal-content" style="max-width:720px">
-    <h3>Gerenciar Logins</h3>
-
+<!-- MODAL DE ACESSOS -->
+<div id="modalAcessos" class="modal hidden">
+  <div class="modal-content">
+    <h3>Gerenciar Acessos</h3>
     <div id="usuariosList"></div>
-
-    <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-      <input id="novoUsuario" placeholder="Usuário" style="padding:8px;border-radius:6px;border:1px solid #e5e7eb">
-      <!-- senha com asteriscos -->
-      <input id="novaSenha" placeholder="Senha" type="password" style="padding:8px;border-radius:6px;border:1px solid #e5e7eb">
-      <button class="add" id="addUsuarioBtn">Adicionar</button>
-      <button class="secondary" id="verAcessosBtn" style="margin-left:8px">Ver Acessos</button>
-    </div>
-
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
-      <button class="secondary" id="closeUsuarios">Fechar</button>
-      <button class="danger" id="limparAcessosBtn">Limpar Logs Acessos</button>
-    </div>
+    <button class="add" id="addUsuarioBtn">Adicionar Usuário</button>
+    <button class="secondary" id="fecharModalAcessosBtn">Fechar</button>
+    <div id="acessosList"></div>
   </div>
 </div>
 
-<!-- Modal Acessos -->
-<div id="acessosModal" class="modal hidden">
-  <div class="modal-content" style="max-width:900px">
-    <h3>Logs de Acessos</h3>
-    <div id="acessosList">Carregando...</div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
-      <button class="secondary" id="closeAcessos">Fechar</button>
-    </div>
-  </div>
-</div>
+<script>
+let usuarios = JSON.parse(localStorage.getItem('usuarios')) || [
+  {user:'admin', pass:'admin', role:'admin'},
+  {user:'user', pass:'user', role:'user'}
+];
+let logado = null;
 
-<!-- Substitua todo o seu <script type="module"> pelo seguinte, mantendo todo o HTML/CSS intacto -->
-
-<script type="module">
-/* ---------- FIREBASE ---------- */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
-import {
-  getFirestore, collection, getDocs, setDoc, doc, deleteDoc, onSnapshot, runTransaction, addDoc
-} from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCpBiFzqOod4K32cWMr5hfx13fw6LGcPVY",
-  authDomain: "ponto-eletronico-f35f9.firebaseapp.com",
-  projectId: "ponto-eletronico-f35f9",
-  storageBucket: "ponto-eletronico-f35f9.firebasestorage.app",
-  messagingSenderId: "208638350255",
-  appId: "1:208638350255:web:63d016867a67575b5e155a"
-};
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-/* ---------- Estado ---------- */
-let colaboradores = [];
-let pontos = [];
-let colabEmEdicao = null;
-let usuariosAcesso = []; // lista de logins cadastrados
-let usuarioLogado = null;
-let isAdmin = false;
-
-/* UI elements */
-const loginScreen = document.getElementById('loginScreen');
-const mainApp = document.getElementById('mainApp');
-const colabSelect = document.getElementById('colabSelect');
-const filtroAtual = (() => { const d = new Date(); const m = String(d.getMonth()+1).padStart(2,'0'); return `${d.getFullYear()}-${m}`; })(); // "YYYY-MM"
-
-/* credenciais fixas (admin principal) */
-const LOGIN_USER = 'CLX';
-const LOGIN_PASS = '02072007';
-
-/* ---------- LOGIN (agora valida também os usuarios da coleção 'logins') ---------- */
-async function buscarUsuariosAcesso() {
-  const uSnap = await getDocs(collection(db, "logins"));
-  usuariosAcesso = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  return usuariosAcesso;
-}
-
-async function validarCredenciaisLocal(u,p) {
-  // se for admin fixo -> admin
-  if (u === LOGIN_USER && p === LOGIN_PASS) {
-    return { ok: true, admin: true, usuario: LOGIN_USER, acessos: { adicionar:true, excluir:true, editar:true, baixar:true } };
-  }
-  // carregar usuarios da coleção
-  const us = await buscarUsuariosAcesso();
-  const found = us.find(x => (x.usuario || '').toString() === u && (x.senha || '').toString() === p);
-  if (found) {
-    // permissões customizáveis
-    // por enquanto todos não-admin podem apenas visualizar e registrar ponto
-    const acessosDefault = { adicionar:false, excluir:false, editar:false, baixar:false };
-    return { ok: true, admin: false, usuario: found.usuario, acessos: acessosDefault };
-  }
-  return { ok: false };
-}
-
-/* registra o acesso no Firestore (coleção 'acessos') */
-async function registrarAcesso(usuario) {
-  try {
-    const now = new Date();
-    const ua = navigator.userAgent || '';
-    await addDoc(collection(db, "acessos"), {
-      usuario,
-      horarioISO: now.toISOString(),
-      userAgent: ua,
-      ip: ''
-    });
-  } catch (err) {
-    console.error('Erro ao registrar acesso:', err);
-  }
-}
-
-document.getElementById('loginBtn').onclick = async () => {
+// Função de login
+document.getElementById('loginBtn').addEventListener('click', ()=>{
   const u = document.getElementById('user').value.trim();
   const p = document.getElementById('pass').value.trim();
-  const res = await validarCredenciaisLocal(u,p);
-  if (res.ok) {
-    usuarioLogado = res.usuario;
-    isAdmin = !!res.admin;
-    usuarioLogado.acessos = res.acessos || {};
-    registrarAcesso(usuarioLogado);
-    loginScreen.style.display = 'none';
-    mainApp.classList.remove('hidden');
-    if (document.getElementById('remember').checked) {
-      localStorage.setItem('autenticado','1');
-      localStorage.setItem('usuarioLogado', usuarioLogado);
-      localStorage.setItem('isAdmin', isAdmin ? '1' : '0');
-    }
-    document.getElementById('gerenciarAcessosBtn').style.display = isAdmin ? 'inline-block' : 'none';
-    aplicarPermissoesUI(res.acessos || {});
-    iniciarLeituras();
-    if (isAdmin) carregarUsuariosUI();
+  const found = usuarios.find(x => x.user === u && x.pass === p);
+  if(found){
+    logado = found;
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('gerenciarAcessosBtn').style.display = (found.role==='admin') ? 'inline-flex' : 'none';
+    document.getElementById('status').textContent = `Online • ${found.user} (${found.role})`;
   } else {
-    document.getElementById('loginMsg').textContent = 'Usuário ou senha incorretos.';
+    document.getElementById('loginMsg').textContent = 'Usuário ou senha inválidos';
   }
-};
-
-/* ---------- Aplicar permissões na UI ---------- */
-function aplicarPermissoesUI(acessos) {
-  // adicionar colaborador
-  if (!acessos.adicionar) document.getElementById('addColabBtn').disabled = true;
-  // limpar pontos
-  if (!acessos.excluir) document.getElementById('limparTodosPontosBtn').disabled = true;
-  // apagar todos colaboradores
-  if (!acessos.excluir) document.getElementById('limparTodosColabsBtn').disabled = true;
-  // baixar/exportar
-  if (!acessos.baixar) {
-    document.getElementById('baixarBtn').disabled = true;
-    document.getElementById('gerarRelatorioBtn').disabled = true;
-    document.getElementById('exportRelatorioColabBtn').disabled = true;
-  }
-}
-
-/* ---------- Logout ---------- */
-document.getElementById('logoutBtn').onclick = () => { 
-  localStorage.removeItem('autenticado'); 
-  localStorage.removeItem('usuarioLogado'); 
-  localStorage.removeItem('isAdmin');
-  location.reload(); 
-};
-
-/* ---------- RELÓGIO ---------- */
-setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR',{hour12:false}); }, 1000);
-
-/* ---------- LEITURAS FIRESTORE ---------- */
-async function iniciarLeituras(){
-  document.getElementById('status').textContent = "Carregando...";
-  const colSnap = await getDocs(collection(db, "colaboradores"));
-  colaboradores = colSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const ptSnap = await getDocs(collection(db, "pontos"));
-  pontos = ptSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  renderAll();
-
-  onSnapshot(collection(db,"colaboradores"), snap => {
-    colaboradores = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    renderColaboradores(document.getElementById('search').value.toLowerCase());
-    popularColabSelect();
-    document.getElementById('status').textContent = "Online • Firebase";
-  });
-
-  onSnapshot(collection(db,"pontos"), snap => {
-    pontos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    renderEntradasSaidas();
-    calcularHoras();
-    document.getElementById('status').textContent = "Online • Firebase";
-  });
-
-  if (isAdmin) {
-    onSnapshot(collection(db,"logins"), snap => {
-      usuariosAcesso = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      carregarUsuariosUI();
-    });
-  }
-}
-
-/* ---------- Restante do código original permanece intacto ---------- */
-
-/* ---------- Dentro de funções de ação, adicione checagem de permissões ---------- */
-/* Exemplo: excluir colaborador */
-async function removerColab(id) {
-  if (!isAdmin && !(usuarioLogado && usuarioLogado.acessos && usuarioLogado.acessos.excluir)) {
-    return alert('Você não tem permissão para excluir colaboradores.');
-  }
-  if (confirm("Excluir colaborador permanentemente?")) {
-    colaboradores = colaboradores.filter(c => c.id !== id);
-    pontos = pontos.filter(p => p.idColab !== id);
-    renderAll();
-    await deleteDoc(doc(db,"colaboradores", id));
-    const pts = await getDocs(collection(db,"pontos"));
-    for (let d of pts.docs) if (d.data().idColab === id) await deleteDoc(doc(db,"pontos", d.id));
-  }
-}
-
-/* Exemplo: registrar ponto (Entrada/Saída) pode ficar liberado para todos usuários */
-async function registrarPonto(idColab, tipo) {
-  const c = colaboradores.find(x => x.id === idColab);
-  if (!c) return alert("Colaborador não encontrado!");
-  const now = new Date();
-  const p = { id: Date.now().toString(), idColab, nome: c.nome, matricula: c.matricula, email: c.email, tipo, data: now.toLocaleDateString('pt-BR'), hora: now.toLocaleTimeString('pt-BR',{hour12:false}), horarioISO: now.toISOString() };
-  pontos.push(p);
-  renderEntradasSaidas();
-  await setDoc(doc(db,"pontos",p.id), p);
-}
-
-/* Para outros botões que alteram dados sensíveis, aplique a mesma lógica de checagem de permissões */
-
-/* ---------- Restante do código permanece igual ---------- */
-</script>
-/* ---------- RENDER GERAL ---------- */
-function renderAll(){
-  renderColaboradores();
-  renderEntradasSaidas();
-  calcularHoras();
-  popularColabSelect();
-}
-
-/* busca */
-document.getElementById('search').addEventListener('input', () => {
-  renderColaboradores(document.getElementById('search').value.toLowerCase());
 });
 
-/* ---------- Obter próximo ID via transação (contagem contínua) ---------- */
-async function obterProximoIdNum() {
-  const counterRef = doc(db, 'meta', 'counters');
-  const next = await runTransaction(db, async (tx) => {
-    const snap = await tx.get(counterRef);
-    let last = 0;
-    if (snap.exists()) {
-      const data = snap.data();
-      last = Number(data.lastId) || 0;
-    }
-    const novo = last + 1;
-    tx.set(counterRef, { lastId: novo }, { merge: true });
-    return novo;
-  });
-  return String(next);
-}
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+  logado = null;
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('gerenciarAcessosBtn').style.display = 'none';
+  document.getElementById('status').textContent = 'Offline • Local Storage';
+});
 
-/* ---------- RENDER COLABORADORES ---------- */
-function renderColaboradores(filtro = '') {
-  const body = document.getElementById('colabBody');
-  if (!body) return;
-  body.innerHTML = '';
-  colaboradores
-    .slice()
-    .sort((a,b) => (a.nome||'').localeCompare(b.nome||''))
-    .filter(c => (c.nome||'').toLowerCase().includes(filtro) || (c.cargo||'').toLowerCase().includes(filtro) || (c.matricula||'').toLowerCase().includes(filtro) || (c.email||'').toLowerCase().includes(filtro))
-    .forEach((c,i) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${i+1}</td>
-        <td>${c.id}</td>
-        <td>${c.nome||''}</td>
-        <td>${c.cargo||''}</td>
-        <td>${c.matricula||''} <span class="small">${c.email||''}</span></td>
-        <td>${c.turno||''}</td>
-        <td>
-          <button class="add btnEntrada">Entrada</button>
-          <button class="secondary btnSaida">Saída</button>
-          <button class="secondary editBtn">Editar</button>
-          <button class="danger delBtn">Excluir</button>
-        </td>`;
-      tr.querySelector('.btnEntrada').onclick = () => registrarPonto(c.id, 'Entrada');
-      tr.querySelector('.btnSaida').onclick = () => registrarPonto(c.id, 'Saída');
-      tr.querySelector('.editBtn').onclick = () => abrirModalEditar(c);
-      tr.querySelector('.delBtn').onclick = () => removerColab(c.id);
-      body.appendChild(tr);
-    });
-}
-
-/* ---------- Modal Colaborador ---------- */
-const colabModal = document.getElementById('colabModal');
-const colabModalTitle = document.getElementById('colabModalTitle');
-const nomeInput = document.getElementById('nomeInput');
-const cargoInput = document.getElementById('cargoInput');
-const matriculaInput = document.getElementById('matriculaInput');
-const emailInput = document.getElementById('emailInput');
-const turnoInput = document.getElementById('turnoInput');
-
-document.getElementById('addColabBtn').onclick = () => abrirModalAdicionar();
-document.getElementById('cancelColab').onclick = () => fecharModalColab();
-
-function abrirModalAdicionar(){
-  colabEmEdicao = null;
-  colabModalTitle.textContent = 'Adicionar Colaborador';
-  nomeInput.value = cargoInput.value = matriculaInput.value = emailInput.value = turnoInput.value = '';
-  colabModal.classList.remove('hidden');
-}
-function abrirModalEditar(c){
-  colabEmEdicao = c;
-  colabModalTitle.textContent = 'Editar Colaborador';
-  nomeInput.value = c.nome||'';
-  cargoInput.value = c.cargo||'';
-  matriculaInput.value = c.matricula||'';
-  emailInput.value = c.email||'';
-  turnoInput.value = c.turno||'';
-  colabModal.classList.remove('hidden');
-}
-function fecharModalColab(){ colabModal.classList.add('hidden'); }
-
-document.getElementById('saveColab').onclick = async () => {
-  const nome = nomeInput.value.trim();
-  if (!nome) return alert('Informe o nome do colaborador');
-  const obj = { nome, cargo:cargoInput.value.trim(), matricula:matriculaInput.value.trim(), email:emailInput.value.trim(), turno:turnoInput.value.trim() };
-
-  if (colabEmEdicao && colabEmEdicao.id) {
-    // edição mantém o mesmo id
-    await setDoc(doc(db,"colaboradores",colabEmEdicao.id), {...colabEmEdicao, ...obj});
-  } else {
-    // novo: pega próximo id via transação (continua contando pra sempre)
-    const newId = await obterProximoIdNum();
-    await setDoc(doc(db,"colaboradores",newId), { id:newId, ...obj });
-  }
-  fecharModalColab();
-};
-
-/* ---------- Registrar ponto ---------- */
-async function registrarPonto(idColab, tipo) {
-  const c = colaboradores.find(x => x.id === idColab);
-  if (!c) return alert("Colaborador não encontrado!");
+// Função de relógio
+function atualizarRelogio(){
   const now = new Date();
-  const p = { id: Date.now().toString(), idColab, nome: c.nome, matricula: c.matricula, email: c.email, tipo, data: now.toLocaleDateString('pt-BR'), hora: now.toLocaleTimeString('pt-BR',{hour12:false}), horarioISO: now.toISOString() };
-  pontos.push(p);
-  renderEntradasSaidas();
-  await setDoc(doc(db,"pontos",p.id), p);
+  document.getElementById('clock').textContent = now.toLocaleTimeString();
 }
+setInterval(atualizarRelogio,1000);
+atualizarRelogio();
+<script>
+// --- DADOS DE COLABORADORES ---
+let colaboradores = JSON.parse(localStorage.getItem('colaboradores')) || [
+  {id:1, nome:'João', depto:'Vendas', pontos:10},
+  {id:2, nome:'Maria', depto:'Marketing', pontos:15}
+];
 
-/* ---------- Funções mês atual ---------- */
-function pontosDoMesAtual(pArray) {
-  const hoje = new Date();
-  const ano = String(hoje.getFullYear());
-  const mes = String(hoje.getMonth()+1).padStart(2,'0');
-  return pArray.filter(p => {
-    const [d,m,a] = p.data.split('/');
-    return a === ano && m === mes;
-  });
-}
-
-/* ---------- Entradas / Saídas (mês atual) ---------- */
-function renderEntradasSaidas() {
-  const entBody = document.getElementById('entradasBody');
-  const saiBody = document.getElementById('saidasBody');
-  entBody.innerHTML = ''; saiBody.innerHTML = '';
-
-  const pts = pontosDoMesAtual(pontos);
-
-  let eIdx=1, sIdx=1;
-  pts.filter(p => p.tipo === 'Entrada').forEach((p) => {
+// --- FUNÇÃO PARA ATUALIZAR TABELA ---
+function atualizarTabela(){
+  const tbody = document.getElementById('colaboradoresBody');
+  tbody.innerHTML = '';
+  colaboradores.forEach(c => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${eIdx++}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`;
-    tr.querySelector('.delP').onclick = () => excluirPonto(p.id);
-    entBody.appendChild(tr);
+    tr.innerHTML = `
+      <td>${c.id}</td>
+      <td>${c.nome}</td>
+      <td>${c.depto}</td>
+      <td>${c.pontos}</td>
+      <td>
+        <button onclick="abrirModalPontos(${c.id})">Pontos</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
   });
+}
+atualizarTabela();
 
-  pts.filter(p => p.tipo === 'Saída').forEach((p) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${sIdx++}</td><td>${p.idColab}</td><td>${p.nome}</td><td>${p.data}</td><td>${p.hora}</td><td><button class="danger delP">Excluir</button></td>`;
-    tr.querySelector('.delP').onclick = () => excluirPonto(p.id);
-    saiBody.appendChild(tr);
+// --- MODAL DE PONTOS ---
+function abrirModalPontos(id){
+  if(!logado) return alert('Faça login primeiro!');
+  const colab = colaboradores.find(c => c.id === id);
+  document.getElementById('modalNomeColab').textContent = colab.nome;
+  document.getElementById('pontosList').innerHTML = `
+    <p>Pontos atuais: ${colab.pontos}</p>
+    <button onclick="adicionarPonto(${id})">Adicionar Ponto</button>
+  `;
+  document.getElementById('modalPontos').classList.remove('hidden');
+}
+
+function adicionarPonto(id){
+  if(logado.role !== 'admin') return alert('Apenas administradores podem adicionar pontos.');
+  const colab = colaboradores.find(c => c.id === id);
+  colab.pontos += 1;
+  salvarColaboradores();
+  abrirModalPontos(id);
+  atualizarTabela();
+}
+
+document.getElementById('limparPontosColabBtn').addEventListener('click', ()=>{
+  if(logado.role !== 'admin') return alert('Apenas administradores podem limpar pontos.');
+  const nome = document.getElementById('modalNomeColab').textContent;
+  const colab = colaboradores.find(c => c.nome === nome);
+  colab.pontos = 0;
+  salvarColaboradores();
+  abrirModalPontos(colab.id);
+  atualizarTabela();
+});
+
+document.getElementById('fecharModalPontosBtn').addEventListener('click', ()=>{
+  document.getElementById('modalPontos').classList.add('hidden');
+});
+
+// --- PESQUISA ---
+document.getElementById('searchInput').addEventListener('input', function(){
+  const termo = this.value.toLowerCase();
+  const rows = document.querySelectorAll('#colaboradoresBody tr');
+  rows.forEach(row => {
+    const nome = row.cells[1].textContent.toLowerCase();
+    row.style.display = nome.includes(termo) ? '' : 'none';
   });
+});
 
-  calcularHoras();
+// --- SALVAR NO LOCALSTORAGE ---
+function salvarColaboradores(){
+  localStorage.setItem('colaboradores', JSON.stringify(colaboradores));
 }
 
-/* ---------- Excluir ponto ---------- */
-async function excluirPonto(id) {
-  if (confirm("Excluir este ponto permanentemente?")) {
-    pontos = pontos.filter(p => p.id !== id);
-    renderEntradasSaidas();
-    await deleteDoc(doc(db,"pontos",id));
-  }
-}
-
-/* ---------- Remover colaborador ---------- */
-async function removerColab(id) {
-  if (confirm("Excluir colaborador permanentemente?")) {
-    colaboradores = colaboradores.filter(c => c.id !== id);
-    pontos = pontos.filter(p => p.idColab !== id);
-    renderAll();
-    await deleteDoc(doc(db,"colaboradores", id));
-    const pts = await getDocs(collection(db,"pontos"));
-    for (let d of pts.docs) if (d.data().idColab === id) await deleteDoc(doc(db,"pontos", d.id));
-    // NÃO reiniciamos o contador aqui: o meta/counters mantém lastId
-  }
-}
-
-/* ---------- Apagar todos colaboradores (mantém contador) ---------- */
-document.getElementById('limparTodosColabsBtn').onclick = async () => {
-  if (!confirm("Deseja apagar TODOS os colaboradores e seus pontos? Isto NÃO vai reiniciar o contador (IDs continuarão aumentando).")) return;
-  // apagar colaboradores
-  const col = await getDocs(collection(db,"colaboradores"));
-  for (let d of col.docs) await deleteDoc(doc(db,"colaboradores", d.id));
-  // apagar pontos
-  const pts = await getDocs(collection(db,"pontos"));
-  for (let d of pts.docs) await deleteDoc(doc(db,"pontos", d.id));
-  colaboradores = []; pontos = [];
-  renderAll();
-  alert('Todos os colaboradores e pontos foram apagados. O contador continuará de onde parou.');
-}
-
-/* ---------- Limpar todos os pontos (mantém colaboradores e contador) ---------- */
-document.getElementById('limparTodosPontosBtn').onclick = async () => {
-  if (!confirm("Deseja realmente excluir todos os pontos?")) return;
-  const col = await getDocs(collection(db,"pontos"));
-  for (let d of col.docs) await deleteDoc(doc(db,"pontos", d.id));
-  pontos = [];
-  renderEntradasSaidas();
-}
-
-/* ---------- UTIL / Formatação de tempo (hh mm ss) ---------- */
-function formatarHorasSegundos(totalSegundos) {
-  totalSegundos = Math.max(0, Math.round(totalSegundos)); // evitar negativos e garantir inteiro
-  const horas = Math.floor(totalSegundos / 3600);
-  const minutos = Math.floor((totalSegundos % 3600) / 60);
-  const segundos = totalSegundos % 60;
-  return `${horas}h ${minutos}m ${segundos}s`;
-}
-
-/* ---------- Calcular horas (mês atual) - agora com segundos ---------- */
-function calcularHoras() {
-  const horasBody = document.getElementById('horasBody');
-  const totalHorasCell = document.getElementById('totalHoras');
-  horasBody.innerHTML = '';
-  let dados = {}; // dados[nome][data] = lista pontos
-  let totalGeralSegundos = 0;
-
-  const pts = pontosDoMesAtual(pontos);
-
-  pts.forEach(p => {
-    if (!dados[p.nome]) dados[p.nome] = {};
-    if (!dados[p.nome][p.data]) dados[p.nome][p.data] = [];
-    dados[p.nome][p.data].push(p);
+// --- DOWNLOAD CSV ---
+document.getElementById('downloadBtn').addEventListener('click', ()=>{
+  if(!logado || logado.role !== 'admin') return alert('Apenas administradores podem baixar os dados.');
+  let csv = 'ID,Nome,Departamento,Pontos\n';
+  colaboradores.forEach(c => {
+    csv += `${c.id},${c.nome},${c.depto},${c.pontos}\n`;
   });
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'colaboradores.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+</script>
+<script>
+// --- USUÁRIOS E LOGIN ---
+let usuarios = JSON.parse(localStorage.getItem('usuarios')) || [
+  {username:'admin', password:'123', role:'admin'},
+  {username:'user', password:'123', role:'user'}
+];
 
-  Object.keys(dados).forEach(nome => {
-    Object.keys(dados[nome]).forEach(data => {
-      // ordenar por horarioISO
-      let reg = dados[nome][data].slice().sort((a,b) => new Date(a.horarioISO) - new Date(b.horarioISO));
-      let entrada = null;
-      let totalSegundosPorDia = 0;
-      reg.forEach(r => {
-        if (r.tipo === 'Entrada') {
-          entrada = new Date(r.horarioISO);
-        } else if (r.tipo === 'Saída' && entrada) {
-          const saida = new Date(r.horarioISO);
-          const diffSeg = Math.round((saida - entrada) / 1000);
-          if (diffSeg > 0) totalSegundosPorDia += diffSeg;
-          entrada = null;
-        }
-      });
-      totalGeralSegundos += totalSegundosPorDia;
-      const tempoFormatado = formatarHorasSegundos(totalSegundosPorDia);
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${nome}</td><td>${data}</td><td>${tempoFormatado}</td>`;
-      horasBody.appendChild(tr);
-    });
-  });
+let logado = null;
 
-  totalHorasCell.textContent = formatarHorasSegundos(totalGeralSegundos);
-}
-
-/* ---------- Exportar Excel (mês atual) + aba de Resumo com hh mm ss (apenas quem bateou SAÍDA) ---------- */
-document.getElementById('baixarBtn').onclick = () => {
-  const ptsMes = pontosDoMesAtual(pontos);
-  const entradas = [['#','ID Colab','Nome','Data','Hora']];
-  const saidas = [['#','ID Colab','Nome','Data','Hora']];
-
-  // preparar resumo: totalSegundos por colaborador (somente pares entrada->saida)
-  const resumoSegundos = {}; // { nome: totalSegundos }
-  // Para evitar confusão de indices, vamos agrupar por colaborador e data e processar em ordem
-  const byPersonDate = {};
-  ptsMes.forEach(p => {
-    const key = `${p.nome}||${p.data}`;
-    if (!byPersonDate[key]) byPersonDate[key] = [];
-    byPersonDate[key].push(p);
-  });
-
-  // preencher Entradas / Saidas arrays e calcular resumo
-  let eIdx = 1, sIdx = 1;
-  // Entradas e Saídas na ordem original de ponto array filtrada por mês (mantém similar ao que usuário vê)
-  ptsMes.forEach((p) => {
-    if (p.tipo === 'Entrada') entradas.push([eIdx++, p.idColab, p.nome, p.data, p.hora]);
-    if (p.tipo === 'Saída') saidas.push([sIdx++, p.idColab, p.nome, p.data, p.hora]);
-  });
-
-  // agora calcular resumo por pessoa (somente pares entrada->saída válidos)
-  Object.keys(byPersonDate).forEach(k => {
-    const arr = byPersonDate[k].slice().sort((a,b) => new Date(a.horarioISO) - new Date(b.horarioISO));
-    let entrada = null;
-    arr.forEach(item => {
-      if (item.tipo === 'Entrada') entrada = new Date(item.horarioISO);
-      else if (item.tipo === 'Saída' && entrada) {
-        const saida = new Date(item.horarioISO);
-        const diffSegundos = Math.round((saida - entrada) / 1000);
-        if (diffSegundos > 0) {
-          resumoSegundos[item.nome] = (resumoSegundos[item.nome] || 0) + diffSegundos;
-        }
-        entrada = null;
-      }
-    });
-  });
-
-  // filtrar resumo para incluir apenas quem teve pelo menos uma Saída
-  const nomesComSaida = new Set(ptsMes.filter(p => p.tipo === 'Saída').map(p => p.nome));
-  const wsResumo = [['Colaborador','Horas Trabalhadas (mês atual)']];
-  Object.keys(resumoSegundos).forEach(nome => {
-    if (nomesComSaida.has(nome)) {
-      wsResumo.push([nome, formatarHorasSegundos(resumoSegundos[nome])]);
-    }
-  });
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(entradas), 'Entradas');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(saidas), 'Saídas');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wsResumo), 'Resumo de Horas');
-  XLSX.writeFile(wb, `Pontos_${filtroAtual}.xlsx`);
-};
-
-/* ---------- Relatório Geral Semanal/Mensal (mês atual) - export já existente (mantive) ---------- */
-document.getElementById('gerarRelatorioBtn').onclick = () => {
-  const pts = pontosDoMesAtual(pontos).slice().sort((a,b)=> new Date(a.horarioISO) - new Date(b.horarioISO));
-  const rel = {};
-  function getMonday(d){ const date = new Date(d); const day = date.getDay(); const diff = date.getDate() - day + (day===0? -6:1); const m = new Date(date.setDate(diff)); m.setHours(0,0,0,0); return m; }
-  const byPerson = {};
-  pts.forEach(p => { if (!byPerson[p.nome]) byPerson[p.nome]=[]; byPerson[p.nome].push(p); });
-  Object.keys(byPerson).forEach(nome => {
-    rel[nome] = { semanal:{}, mensal:0 };
-    const regs = byPerson[nome].slice().sort((a,b)=> new Date(a.horarioISO)-new Date(b.horarioISO));
-    let entrada = null;
-    regs.forEach(r => {
-      const dt = new Date(r.horarioISO);
-      if (r.tipo === 'Entrada') entrada = dt;
-      else if (r.tipo === 'Saída' && entrada) {
-        const h = (dt - entrada)/3600000;
-        const monday = getMonday(entrada).toLocaleDateString('pt-BR');
-        rel[nome].semanal[monday] = (rel[nome].semanal[monday] || 0) + h;
-        rel[nome].mensal += h;
-        entrada = null;
-      }
-    });
-  });
-  const ws = [['Funcionário','Semana (segunda)','Horas Semana','Total Mensal']];
-  Object.keys(rel).forEach(nome => {
-    const semanas = Object.keys(rel[nome].semanal).sort((a,b)=> {
-      const pa = a.split('/').reverse().join('-'); const pb = b.split('/').reverse().join('-'); return new Date(pa)-new Date(pb);
-    });
-    if (semanas.length === 0) ws.push([nome,'-','-', `${Math.floor(rel[nome].mensal)}h ${Math.round((rel[nome].mensal-Math.floor(rel[nome].mensal))*60)}m`]);
-    else {
-      semanas.forEach(sk => {
-        const h = rel[nome].semanal[sk];
-        ws.push([nome, sk, `${Math.floor(h)}h ${Math.round((h-Math.floor(h))*60)}m`, '']);
-      });
-      ws.push([nome, 'Total Mês', '', `${Math.floor(rel[nome].mensal)}h ${Math.round((rel[nome].mensal-Math.floor(rel[nome].mensal))*60)}m`]);
-    }
-  });
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ws), 'Relatorio_Horas');
-  XLSX.writeFile(wb, `Relatorio_Horas_${filtroAtual}.xlsx`);
-};
-
-/* ---------- Relatório por colaborador (visualizar/exportar) ---------- */
-function getMonday(d) {
-  const date = new Date(d); const day = date.getDay(); const diff = date.getDate() - day + (day === 0 ? -6 : 1); const monday = new Date(date.setDate(diff)); monday.setHours(0,0,0,0); return monday;
-}
-function gerarRelatorioPorColaborador(nome) {
-  const rel = { semanal:{}, mensal:0, nome };
-  const regsAll = pontosDoMesAtual(pontos).filter(p => p.nome === nome).sort((a,b)=> new Date(a.horarioISO)-new Date(b.horarioISO));
-  let entrada = null;
-  regsAll.forEach(r => {
-    const dt = new Date(r.horarioISO);
-    if (r.tipo === 'Entrada') entrada = dt;
-    else if (r.tipo === 'Saída' && entrada) {
-      const hours = (dt - entrada)/3600000;
-      const monday = getMonday(entrada).toLocaleDateString('pt-BR');
-      rel.semanal[monday] = (rel.semanal[monday]||0) + hours;
-      rel.mensal += hours;
-      entrada = null;
-    }
-  });
-  return rel;
-}
-document.getElementById('verRelatorioColabBtn').onclick = () => {
-  const nome = colabSelect.value;
-  if (!nome) return alert('Selecione um colaborador');
-  const rel = gerarRelatorioPorColaborador(nome);
-  let html = `<p><b>Colaborador:</b> ${rel.nome}</p>`;
-  html += `<table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f3f4f6"><th>Semana (segunda)</th><th>Horas</th></tr></thead><tbody>`; 
-  const semanas = Object.keys(rel.semanal).sort((a,b)=> { const pa=a.split('/').reverse().join('-'); const pb=b.split('/').reverse().join('-'); return new Date(pa)-new Date(pb); });
-  if (semanas.length === 0) html += `<tr><td colspan="2">Sem registros no mês atual</td></tr>`;
-  else semanas.forEach(sk => { const h = rel.semanal[sk]; html += `<tr><td>${sk}</td><td>${Math.floor(h)}h ${Math.round((h-Math.floor(h))*60)}m</td></tr>`; });
-  html += `</tbody><tfoot><tr style="background:#fbfdfe"><td><b>Total mês</b></td><td><b>${Math.floor(rel.mensal)}h ${Math.round((rel.mensal-Math.floor(rel.mensal))*60)}m</b></td></tr></tfoot></table>`;
-  document.getElementById('relColabContent').innerHTML = html;
-  document.getElementById('relColabModal').classList.remove('hidden');
-};
-document.getElementById('closeRelColab').onclick = () => document.getElementById('relColabModal').classList.add('hidden');
-
-document.getElementById('exportRelatorioColabBtn').onclick = () => {
-  const nome = colabSelect.value;
-  if (!nome) return alert('Selecione um colaborador');
-  const rel = gerarRelatorioPorColaborador(nome);
-  const ws = [['Semana (segunda)','Horas Semana']];
-  const semanas = Object.keys(rel.semanal).sort((a,b)=> { const pa=a.split('/').reverse().join('-'); const pb=b.split('/').reverse().join('-'); return new Date(pa)-new Date(pb); });
-  semanas.forEach(sk => { const h = rel.semanal[sk]; ws.push([sk, `${Math.floor(h)}h ${Math.round((h-Math.floor(h))*60)}m`]); });
-  ws.push(['Total mês', `${Math.floor(rel.mensal)}h ${Math.round((rel.mensal-Math.floor(rel.mensal))*60)}m`]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ws), 'Relatorio_Colaborador');
-  XLSX.writeFile(wb, `Relatorio_${nome.replace(/\s+/g,'_')}_${filtroAtual}.xlsx`);
-};
-
-/* ---------- Auto saída 20:00 ---------- */
-function baterSaidaAutomatica(){
-  const agora = new Date(); const h = agora.getHours(), m = agora.getMinutes();
-  if (h === 20 && m === 0) {
-    colaboradores.forEach(c => {
-      const hoje = agora.toLocaleDateString('pt-BR');
-      const pontosHoje = pontos.filter(p => p.idColab === c.id && p.data === hoje);
-      const temEntrada = pontosHoje.some(p => p.tipo === 'Entrada');
-      const temSaida = pontosHoje.some(p => p.tipo === 'Saída');
-      if (temEntrada && !temSaida) registrarPonto(c.id, 'Saída');
-    });
-  }
-}
-setInterval(baterSaidaAutomatica, 60000);
-
-/* ---------- popular select ---------- */
-function popularColabSelect() {
-  colabSelect.innerHTML = '<option value="">-- selecione --</option>';
-  colaboradores
-    .slice()
-    .sort((a,b) => (a.nome||'').localeCompare(b.nome||''))
-    .forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.nome || c.id;
-      opt.textContent = `${c.id} - ${c.nome || c.id}`;
-      colabSelect.appendChild(opt);
-    });
-}
-
-/* ---------- inicialização UI ---------- */
-function inicializarUI(){
-  popularColabSelect();
-}
-inicializarUI();
-
-/* =================== GESTÃO DE USUÁRIOS (Acessos) =================== */
-/* Mostrar modal de usuarios (apenas admin) */
-const gerenciarAcessosBtn = document.getElementById('gerenciarAcessosBtn');
-const usuariosModal = document.getElementById('usuariosModal');
-const usuariosList = document.getElementById('usuariosList');
-const novoUsuarioInput = document.getElementById('novoUsuario');
-const novaSenhaInput = document.getElementById('novaSenha');
-const addUsuarioBtn = document.getElementById('addUsuarioBtn');
-const closeUsuarios = document.getElementById('closeUsuarios');
-
-const verAcessosBtn = document.getElementById('verAcessosBtn');
-const acessosModal = document.getElementById('acessosModal');
-const acessosList = document.getElementById('acessosList');
-const closeAcessos = document.getElementById('closeAcessos');
-const limparAcessosBtn = document.getElementById('limparAcessosBtn');
-
-gerenciarAcessosBtn.onclick = () => {
-  if (!isAdmin) return alert('Apenas o administrador pode gerenciar acessos.');
-  usuariosModal.classList.remove('hidden');
-  carregarUsuariosUI();
-};
-closeUsuarios.onclick = () => usuariosModal.classList.add('hidden');
-
-/* carregar lista de usuarios na UI */
-async function carregarUsuariosUI() {
-  usuariosList.innerHTML = '';
-  const uSnap = await getDocs(collection(db, "logins"));
-  usuariosAcesso = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-  if (usuariosAcesso.length === 0) {
-    usuariosList.innerHTML = '<div style="padding:8px;color:#6b7280">Nenhum usuário de acesso cadastrado.</div>';
+// --- LOGIN ---
+document.getElementById('loginBtn').addEventListener('click', ()=>{
+  const user = document.getElementById('username').value;
+  const pass = document.getElementById('password').value;
+  const found = usuarios.find(u => u.username === user && u.password === pass);
+  if(found){
+    logado = found;
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('welcomeUser').textContent = `Bem-vindo, ${logado.username}!`;
+    document.getElementById('welcomeUser').classList.remove('hidden');
+    document.getElementById('adminControls').style.display = logado.role === 'admin' ? 'block' : 'none';
   } else {
-    usuariosAcesso.forEach(u => {
-      const div = document.createElement('div');
-      div.className = 'usr-row';
-      div.innerHTML = `<div>${u.usuario}</div>
-        <div style="display:flex;gap:6px">
-          <button class="secondary editUserBtn" data-id="${u.id}">Editar</button>
-          <button class="danger delUserBtn" data-id="${u.id}">Excluir</button>
-        </div>`;
-      usuariosList.appendChild(div);
-    });
-
-    // ligar eventos
-    usuariosList.querySelectorAll('.delUserBtn').forEach(btn => {
-      btn.onclick = async (ev) => {
-        const id = ev.currentTarget.getAttribute('data-id');
-        if (!confirm('Excluir este usuário de acesso?')) return;
-        await deleteDoc(doc(db, "logins", id));
-        carregarUsuariosUI();
-      };
-    });
-    usuariosList.querySelectorAll('.editUserBtn').forEach(btn => {
-      btn.onclick = (ev) => {
-        const id = ev.currentTarget.getAttribute('data-id');
-        const uobj = usuariosAcesso.find(x => x.id === id);
-        if (!uobj) return;
-        const novo = prompt('Novo nome de usuário:', uobj.usuario);
-        if (novo === null) return;
-        const novaSenha = prompt('Nova senha (vazio = manter):', '');
-        (async () => {
-          const ref = doc(db, "logins", id);
-          const obj = { usuario: novo };
-          if (novaSenha && novaSenha.trim().length > 0) obj.senha = novaSenha.trim();
-          await setDoc(ref, obj, { merge: true });
-          carregarUsuariosUI();
-        })();
-      };
-    });
+    alert('Usuário ou senha incorretos!');
   }
+});
+
+// --- LOGOUT ---
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+  logado = null;
+  document.getElementById('loginForm').classList.remove('hidden');
+  document.getElementById('welcomeUser').classList.add('hidden');
+});
+
+// --- GERENCIAR USUÁRIOS (SOMENTE ADMIN) ---
+document.getElementById('manageUsersBtn').addEventListener('click', ()=>{
+  if(!logado || logado.role !== 'admin') return alert('Apenas administradores podem gerenciar usuários.');
+  const tbody = document.getElementById('usersBody');
+  tbody.innerHTML = '';
+  usuarios.forEach((u, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${u.username}</td>
+      <td>${u.role}</td>
+      <td>
+        <button onclick="removerUsuario(${i})">Remover</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('modalUsers').classList.remove('hidden');
+});
+
+function removerUsuario(index){
+  if(!logado || logado.role !== 'admin') return alert('Apenas administradores podem remover usuários.');
+  if(usuarios[index].username === 'admin') return alert('Não é possível remover o admin principal!');
+  usuarios.splice(index,1);
+  salvarUsuarios();
+  document.getElementById('manageUsersBtn').click(); // Atualiza tabela
 }
 
-/* adicionar novo usuario (apenas admin) */
-addUsuarioBtn.onclick = async () => {
-  if (!isAdmin) return alert('Apenas o administrador pode adicionar usuários.');
-  const usuario = novoUsuarioInput.value.trim();
-  const senha = novaSenhaInput.value.trim();
-  if (!usuario || !senha) return alert('Informe usuário e senha.');
-  // cria doc com id automático
-  const newId = Date.now().toString();
-  await setDoc(doc(db, "logins", newId), { usuario, senha });
-  novoUsuarioInput.value = '';
-  novaSenhaInput.value = '';
-  carregarUsuariosUI();
-};
+document.getElementById('fecharModalUsersBtn').addEventListener('click', ()=>{
+  document.getElementById('modalUsers').classList.add('hidden');
+});
 
-/* ---------- ACESSOS: visualizar e limpar ---------- */
-verAcessosBtn.onclick = async () => {
-  usuariosModal.classList.add('hidden');
-  acessosModal.classList.remove('hidden');
-  carregarAcessosUI();
-  // inscrever atualização em tempo real
-  onSnapshot(collection(db, "acessos"), snap => {
-    carregarAcessosUI(); // atualiza
-  });
-};
-closeAcessos.onclick = () => acessosModal.classList.add('hidden');
-
-/* carrega lista de acessos (mais recentes primeiro) */
-async function carregarAcessosUI() {
-  const snap = await getDocs(collection(db, "acessos"));
-  const docs = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b)=> new Date(b.horarioISO) - new Date(a.horarioISO));
-  if (docs.length === 0) {
-    acessosList.innerHTML = '<div style="padding:8px;color:#6b7280">Nenhum acesso registrado.</div>';
-    return;
+// --- ADICIONAR USUÁRIO ---
+document.getElementById('addUserBtn').addEventListener('click', ()=>{
+  if(!logado || logado.role !== 'admin') return alert('Apenas administradores podem adicionar usuários.');
+  const username = prompt('Nome do usuário:');
+  const password = prompt('Senha:');
+  const role = prompt('Função (admin/user):');
+  if(username && password && (role==='admin'||role==='user')){
+    usuarios.push({username,password,role});
+    salvarUsuarios();
+    alert('Usuário adicionado com sucesso!');
+  } else {
+    alert('Dados inválidos!');
   }
-  acessosList.innerHTML = '';
-  docs.forEach(d => {
-    const dt = new Date(d.horarioISO);
-    const dtStr = dt.toLocaleString('pt-BR', { hour12:false });
-    const ua = (d.userAgent || '').slice(0,140);
-    const div = document.createElement('div');
-    div.className = 'acc-row';
-    div.innerHTML = `<div><b>${d.usuario}</b> — ${dtStr}</div><div style="color:#6b7280;font-size:12px">${ua}</div>`;
-    acessosList.appendChild(div);
+});
+
+// --- SALVAR USUÁRIOS ---
+function salvarUsuarios(){
+  localStorage.setItem('usuarios', JSON.stringify(usuarios));
+}
+</script>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Gestão de Colaboradores e Pontos</title>
+<style>
+.hidden { display: none; }
+table, th, td { border: 1px solid black; border-collapse: collapse; padding: 5px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginForm">
+  <h2>Login</h2>
+  <input type="text" id="username" placeholder="Usuário">
+  <input type="password" id="password" placeholder="Senha">
+  <button id="loginBtn">Entrar</button>
+</div>
+
+<div id="welcomeUser" class="hidden">
+  <h2>Bem-vindo!</h2>
+  <button id="logoutBtn">Sair</button>
+</div>
+
+<div id="adminControls" style="display:none;">
+  <button id="manageUsersBtn">Gerenciar Usuários</button>
+  <button id="addUserBtn">Adicionar Usuário</button>
+</div>
+
+<!-- MODAL DE USUÁRIOS -->
+<div id="modalUsers" class="hidden">
+  <h3>Usuários</h3>
+  <table>
+    <thead>
+      <tr><th>Usuário</th><th>Função</th><th>Ação</th></tr>
+    </thead>
+    <tbody id="usersBody"></tbody>
+  </table>
+  <button id="fecharModalUsersBtn">Fechar</button>
+</div>
+
+<!-- COLABORADORES -->
+<h2>Cadastro de Colaboradores</h2>
+<input type="text" id="nomeColab" placeholder="Nome">
+<input type="text" id="cpfColab" placeholder="CPF">
+<button id="addColabBtn">Adicionar Colaborador</button>
+
+<table>
+  <thead>
+    <tr><th>Nome</th><th>CPF</th></tr>
+  </thead>
+  <tbody id="colabsBody"></tbody>
+</table>
+
+<!-- PONTOS -->
+<h2>Pontos</h2>
+<input type="text" id="nomePonto" placeholder="Nome do ponto">
+<input type="text" id="descricaoPonto" placeholder="Descrição">
+<button id="addPontoBtn">Adicionar Ponto</button>
+
+<table>
+  <thead>
+    <tr><th>Nome</th><th>Descrição</th></tr>
+  </thead>
+  <tbody id="pontosBody"></tbody>
+</table>
+
+<!-- PESQUISA -->
+<h2>Pesquisar Colaborador</h2>
+<input type="text" id="searchColab" placeholder="Nome">
+<button id="searchBtn">Pesquisar</button>
+<div id="searchResults"></div>
+
+<!-- DOWNLOAD CSV -->
+<h2>Download CSV</h2>
+<button id="downloadColabsBtn">Download Colaboradores</button>
+<button id="downloadPontosBtn">Download Pontos</button>
+
+<script>
+// --- USUÁRIOS E LOGIN ---
+let usuarios = JSON.parse(localStorage.getItem('usuarios')) || [
+  {username:'admin', password:'123', role:'admin'},
+  {username:'user', password:'123', role:'user'}
+];
+let logado = null;
+
+// --- LOGIN ---
+document.getElementById('loginBtn').addEventListener('click', ()=>{
+  const user = document.getElementById('username').value;
+  const pass = document.getElementById('password').value;
+  const found = usuarios.find(u => u.username === user && u.password === pass);
+  if(found){
+    logado = found;
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('welcomeUser').textContent = `Bem-vindo, ${logado.username}!`;
+    document.getElementById('welcomeUser').classList.remove('hidden');
+    document.getElementById('adminControls').style.display = logado.role === 'admin' ? 'block' : 'none';
+  } else {
+    alert('Usuário ou senha incorretos!');
+  }
+});
+
+// --- LOGOUT ---
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+  logado = null;
+  document.getElementById('loginForm').classList.remove('hidden');
+  document.getElementById('welcomeUser').classList.add('hidden');
+});
+
+// --- GERENCIAR USUÁRIOS (SOMENTE ADMIN) ---
+document.getElementById('manageUsersBtn').addEventListener('click', ()=>{
+  if(!logado || logado.role !== 'admin') return alert('Apenas administradores podem gerenciar usuários.');
+  const tbody = document.getElementById('usersBody');
+  tbody.innerHTML = '';
+  usuarios.forEach((u, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${u.username}</td>
+      <td>${u.role}</td>
+      <td><button onclick="removerUsuario(${i})">Remover</button></td>
+    `;
+    tbody.appendChild(tr);
   });
+  document.getElementById('modalUsers').classList.remove('hidden');
+});
+
+function removerUsuario(index){
+  if(!logado || logado.role !== 'admin') return alert('Apenas administradores podem remover usuários.');
+  if(usuarios[index].username === 'admin') return alert('Não é possível remover o admin principal!');
+  usuarios.splice(index,1);
+  salvarUsuarios();
+  document.getElementById('manageUsersBtn').click(); 
 }
 
-/* limpar logs de acessos (apenas admin) */
-limparAcessosBtn.onclick = async () => {
-  if (!isAdmin) return alert('Apenas admin pode limpar logs.');
-  if (!confirm('Limpar todos os logs de acessos? Isso NÃO pode ser desfeito.')) return;
-  const snap = await getDocs(collection(db, "acessos"));
-  for (let d of snap.docs) {
-    await deleteDoc(doc(db, "acessos", d.id));
+document.getElementById('fecharModalUsersBtn').addEventListener('click', ()=>{
+  document.getElementById('modalUsers').classList.add('hidden');
+});
+
+// --- ADICIONAR USUÁRIO ---
+document.getElementById('addUserBtn').addEventListener('click', ()=>{
+  if(!logado || logado.role !== 'admin') return alert('Apenas administradores podem adicionar usuários.');
+  const username = prompt('Nome do usuário:');
+  const password = prompt('Senha:');
+  const role = prompt('Função (admin/user):');
+  if(username && password && (role==='admin'||role==='user')){
+    usuarios.push({username,password,role});
+    salvarUsuarios();
+    alert('Usuário adicionado com sucesso!');
+  } else {
+    alert('Dados inválidos!');
   }
-  alert('Logs de acessos limpos.');
-  carregarAcessosUI();
-};
+});
+
+function salvarUsuarios(){
+  localStorage.setItem('usuarios', JSON.stringify(usuarios));
+}
+
+// --- COLABORADORES ---
+let colabs = JSON.parse(localStorage.getItem('colabs')) || [];
+function renderColabs(){
+  const tbody = document.getElementById('colabsBody');
+  tbody.innerHTML = '';
+  colabs.forEach(c=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${c.nome}</td><td>${c.cpf}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+document.getElementById('addColabBtn').addEventListener('click', ()=>{
+  const nome = document.getElementById('nomeColab').value;
+  const cpf = document.getElementById('cpfColab').value;
+  if(nome && cpf){
+    colabs.push({nome, cpf});
+    localStorage.setItem('colabs', JSON.stringify(colabs));
+    renderColabs();
+  }
+});
+renderColabs();
+
+// --- PONTOS ---
+let pontos = JSON.parse(localStorage.getItem('pontos')) || [];
+function renderPontos(){
+  const tbody = document.getElementById('pontosBody');
+  tbody.innerHTML = '';
+  pontos.forEach(p=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${p.nome}</td><td>${p.descricao}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+document.getElementById('addPontoBtn').addEventListener('click', ()=>{
+  const nome = document.getElementById('nomePonto').value;
+  const desc = document.getElementById('descricaoPonto').value;
+  if(nome && desc){
+    pontos.push({nome, descricao: desc});
+    localStorage.setItem('pontos', JSON.stringify(pontos));
+    renderPontos();
+  }
+});
+renderPontos();
+
+// --- PESQUISA ---
+document.getElementById('searchBtn').addEventListener('click', ()=>{
+  const query = document.getElementById('searchColab').value.toLowerCase();
+  const results = colabs.filter(c=>c.nome.toLowerCase().includes(query));
+  const div = document.getElementById('searchResults');
+  div.innerHTML = results.map(r=>`<p>${r.nome} - ${r.cpf}</p>`).join('');
+});
+
+// --- DOWNLOAD CSV ---
+function downloadCSV(data, filename){
+  const csv = data.map(r => Object.values(r).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+}
+document.getElementById('downloadColabsBtn').addEventListener('click', ()=>downloadCSV(colabs,'colaboradores.csv'));
+document.getElementById('downloadPontosBtn').addEventListener('click', ()=>downloadCSV(pontos,'pontos.csv'));
 
 </script>
+
 </body>
 </html>
