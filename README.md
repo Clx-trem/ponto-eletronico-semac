@@ -106,7 +106,7 @@
   <table id="horasTable">
     <thead><tr><th>Funcionário</th><th>Data</th><th>Horas Trabalhadas</th></tr></thead>
     <tbody id="horasBody"></tbody>
-    <tfoot><tr><td colspan="2"><b>Total Geral</b></td><td id="totalHoras">0</td></tr></tfoot>
+    <tfoot><tr><td colspan="2"><b>Total Geral</b></td><td id="totalHoras">0h 0m 0s</td></tr></tfoot>
   </table>
 </main>
 
@@ -416,12 +416,22 @@ document.getElementById('limparTodosPontosBtn').onclick = async () => {
   renderEntradasSaidas();
 }
 
-/* ---------- Calcular horas (mês atual) ---------- */
+/* ---------- UTIL / Formatação de tempo (hh mm ss) ---------- */
+function formatarHorasSegundos(totalSegundos) {
+  totalSegundos = Math.max(0, Math.round(totalSegundos)); // evitar negativos e garantir inteiro
+  const horas = Math.floor(totalSegundos / 3600);
+  const minutos = Math.floor((totalSegundos % 3600) / 60);
+  const segundos = totalSegundos % 60;
+  return `${horas}h ${minutos}m ${segundos}s`;
+}
+
+/* ---------- Calcular horas (mês atual) - agora com segundos ---------- */
 function calcularHoras() {
   const horasBody = document.getElementById('horasBody');
   const totalHorasCell = document.getElementById('totalHoras');
   horasBody.innerHTML = '';
-  let dados = {}, totalGeral = 0;
+  let dados = {}; // dados[nome][data] = lista pontos
+  let totalGeralSegundos = 0;
 
   const pts = pontosDoMesAtual(pontos);
 
@@ -433,47 +443,89 @@ function calcularHoras() {
 
   Object.keys(dados).forEach(nome => {
     Object.keys(dados[nome]).forEach(data => {
-      let reg = dados[nome][data].sort((a,b) => new Date(a.horarioISO) - new Date(b.horarioISO));
-      let entrada = null, total = 0;
+      // ordenar por horarioISO
+      let reg = dados[nome][data].slice().sort((a,b) => new Date(a.horarioISO) - new Date(b.horarioISO));
+      let entrada = null;
+      let totalSegundosPorDia = 0;
       reg.forEach(r => {
-        const hora = new Date(r.horarioISO);
-        if (r.tipo === 'Entrada') entrada = hora;
-        if (r.tipo === 'Saída' && entrada) {
-          total += (hora - entrada) / 3600000;
+        if (r.tipo === 'Entrada') {
+          entrada = new Date(r.horarioISO);
+        } else if (r.tipo === 'Saída' && entrada) {
+          const saida = new Date(r.horarioISO);
+          const diffSeg = Math.round((saida - entrada) / 1000);
+          if (diffSeg > 0) totalSegundosPorDia += diffSeg;
           entrada = null;
         }
       });
-      totalGeral += total;
-      let h = Math.floor(total);
-      let m = Math.round((total - h) * 60);
+      totalGeralSegundos += totalSegundosPorDia;
+      const tempoFormatado = formatarHorasSegundos(totalSegundosPorDia);
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${nome}</td><td>${data}</td><td>${h}h ${m}m</td>`;
+      tr.innerHTML = `<td>${nome}</td><td>${data}</td><td>${tempoFormatado}</td>`;
       horasBody.appendChild(tr);
     });
   });
 
-  let gh = Math.floor(totalGeral);
-  let gm = Math.round((totalGeral - gh) * 60);
-  totalHorasCell.textContent = `${gh}h ${gm}m`;
+  totalHorasCell.textContent = formatarHorasSegundos(totalGeralSegundos);
 }
 
-/* ---------- Exportar Excel (mês atual) ---------- */
+/* ---------- Exportar Excel (mês atual) + aba de Resumo com hh mm ss (apenas quem bateou SAÍDA) ---------- */
 document.getElementById('baixarBtn').onclick = () => {
-  const pts = pontosDoMesAtual(pontos);
+  const ptsMes = pontosDoMesAtual(pontos);
   const entradas = [['#','ID Colab','Nome','Data','Hora']];
   const saidas = [['#','ID Colab','Nome','Data','Hora']];
-  let e=1, s=1;
-  pts.forEach(p => {
-    if (p.tipo === 'Entrada') entradas.push([e++, p.idColab, p.nome, p.data, p.hora]);
-    if (p.tipo === 'Saída') saidas.push([s++, p.idColab, p.nome, p.data, p.hora]);
+
+  // preparar resumo: totalSegundos por colaborador (somente pares entrada->saida)
+  const resumoSegundos = {}; // { nome: totalSegundos }
+  // Para evitar confusão de indices, vamos agrupar por colaborador e data e processar em ordem
+  const byPersonDate = {};
+  ptsMes.forEach(p => {
+    const key = `${p.nome}||${p.data}`;
+    if (!byPersonDate[key]) byPersonDate[key] = [];
+    byPersonDate[key].push(p);
   });
+
+  // preencher Entradas / Saidas arrays e calcular resumo
+  let eIdx = 1, sIdx = 1;
+  // Entradas e Saídas na ordem original de ponto array filtrada por mês (mantém similar ao que usuário vê)
+  ptsMes.forEach((p) => {
+    if (p.tipo === 'Entrada') entradas.push([eIdx++, p.idColab, p.nome, p.data, p.hora]);
+    if (p.tipo === 'Saída') saidas.push([sIdx++, p.idColab, p.nome, p.data, p.hora]);
+  });
+
+  // agora calcular resumo por pessoa (somente pares entrada->saída válidos)
+  Object.keys(byPersonDate).forEach(k => {
+    const arr = byPersonDate[k].slice().sort((a,b) => new Date(a.horarioISO) - new Date(b.horarioISO));
+    let entrada = null;
+    arr.forEach(item => {
+      if (item.tipo === 'Entrada') entrada = new Date(item.horarioISO);
+      else if (item.tipo === 'Saída' && entrada) {
+        const saida = new Date(item.horarioISO);
+        const diffSegundos = Math.round((saida - entrada) / 1000);
+        if (diffSegundos > 0) {
+          resumoSegundos[item.nome] = (resumoSegundos[item.nome] || 0) + diffSegundos;
+        }
+        entrada = null;
+      }
+    });
+  });
+
+  // filtrar resumo para incluir apenas quem teve pelo menos uma Saída
+  const nomesComSaida = new Set(ptsMes.filter(p => p.tipo === 'Saída').map(p => p.nome));
+  const wsResumo = [['Colaborador','Horas Trabalhadas (mês atual)']];
+  Object.keys(resumoSegundos).forEach(nome => {
+    if (nomesComSaida.has(nome)) {
+      wsResumo.push([nome, formatarHorasSegundos(resumoSegundos[nome])]);
+    }
+  });
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(entradas), 'Entradas');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(saidas), 'Saídas');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wsResumo), 'Resumo de Horas');
   XLSX.writeFile(wb, `Pontos_${filtroAtual}.xlsx`);
 };
 
-/* ---------- Relatório Geral Semanal/Mensal (mês atual) ---------- */
+/* ---------- Relatório Geral Semanal/Mensal (mês atual) - export já existente (mantive) ---------- */
 document.getElementById('gerarRelatorioBtn').onclick = () => {
   const pts = pontosDoMesAtual(pontos).slice().sort((a,b)=> new Date(a.horarioISO) - new Date(b.horarioISO));
   const rel = {};
