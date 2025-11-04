@@ -179,6 +179,8 @@
   </div>
 </div>
 
+<!-- Substitua todo o seu <script type="module"> pelo seguinte, mantendo todo o HTML/CSS intacto -->
+
 <script type="module">
 /* ---------- FIREBASE ---------- */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
@@ -225,12 +227,17 @@ async function buscarUsuariosAcesso() {
 async function validarCredenciaisLocal(u,p) {
   // se for admin fixo -> admin
   if (u === LOGIN_USER && p === LOGIN_PASS) {
-    return { ok: true, admin: true, usuario: LOGIN_USER };
+    return { ok: true, admin: true, usuario: LOGIN_USER, acessos: { adicionar:true, excluir:true, editar:true, baixar:true } };
   }
   // carregar usuarios da coleção
   const us = await buscarUsuariosAcesso();
   const found = us.find(x => (x.usuario || '').toString() === u && (x.senha || '').toString() === p);
-  if (found) return { ok: true, admin: false, usuario: found.usuario };
+  if (found) {
+    // permissões customizáveis
+    // por enquanto todos não-admin podem apenas visualizar e registrar ponto
+    const acessosDefault = { adicionar:false, excluir:false, editar:false, baixar:false };
+    return { ok: true, admin: false, usuario: found.usuario, acessos: acessosDefault };
+  }
   return { ok: false };
 }
 
@@ -239,12 +246,11 @@ async function registrarAcesso(usuario) {
   try {
     const now = new Date();
     const ua = navigator.userAgent || '';
-    // id automático via addDoc
     await addDoc(collection(db, "acessos"), {
       usuario,
       horarioISO: now.toISOString(),
       userAgent: ua,
-      ip: '' // ip não preenchido aqui (exigir serviço externo)
+      ip: ''
     });
   } catch (err) {
     console.error('Erro ao registrar acesso:', err);
@@ -258,9 +264,8 @@ document.getElementById('loginBtn').onclick = async () => {
   if (res.ok) {
     usuarioLogado = res.usuario;
     isAdmin = !!res.admin;
-    // registrar evento de acesso
+    usuarioLogado.acessos = res.acessos || {};
     registrarAcesso(usuarioLogado);
-    // esconder login e mostrar app
     loginScreen.style.display = 'none';
     mainApp.classList.remove('hidden');
     if (document.getElementById('remember').checked) {
@@ -268,27 +273,32 @@ document.getElementById('loginBtn').onclick = async () => {
       localStorage.setItem('usuarioLogado', usuarioLogado);
       localStorage.setItem('isAdmin', isAdmin ? '1' : '0');
     }
-    // mostrar botão Gerenciar Acessos apenas para admin
     document.getElementById('gerenciarAcessosBtn').style.display = isAdmin ? 'inline-block' : 'none';
+    aplicarPermissoesUI(res.acessos || {});
     iniciarLeituras();
-    // carregar usuarios para o admin ver
     if (isAdmin) carregarUsuariosUI();
   } else {
     document.getElementById('loginMsg').textContent = 'Usuário ou senha incorretos.';
   }
 };
 
-if (localStorage.getItem('autenticado') === '1') {
-  usuarioLogado = localStorage.getItem('usuarioLogado') || null;
-  isAdmin = localStorage.getItem('isAdmin') === '1';
-  // registrarAcesso? não registrar automático ao recarregar a sessão armazenada (apenas em login novo)
-  loginScreen.style.display = 'none';
-  mainApp.classList.remove('hidden');
-  document.getElementById('gerenciarAcessosBtn').style.display = isAdmin ? 'inline-block' : 'none';
-  iniciarLeituras();
-  if (isAdmin) carregarUsuariosUI();
+/* ---------- Aplicar permissões na UI ---------- */
+function aplicarPermissoesUI(acessos) {
+  // adicionar colaborador
+  if (!acessos.adicionar) document.getElementById('addColabBtn').disabled = true;
+  // limpar pontos
+  if (!acessos.excluir) document.getElementById('limparTodosPontosBtn').disabled = true;
+  // apagar todos colaboradores
+  if (!acessos.excluir) document.getElementById('limparTodosColabsBtn').disabled = true;
+  // baixar/exportar
+  if (!acessos.baixar) {
+    document.getElementById('baixarBtn').disabled = true;
+    document.getElementById('gerarRelatorioBtn').disabled = true;
+    document.getElementById('exportRelatorioColabBtn').disabled = true;
+  }
 }
 
+/* ---------- Logout ---------- */
 document.getElementById('logoutBtn').onclick = () => { 
   localStorage.removeItem('autenticado'); 
   localStorage.removeItem('usuarioLogado'); 
@@ -322,7 +332,6 @@ async function iniciarLeituras(){
     document.getElementById('status').textContent = "Online • Firebase";
   });
 
-  // manter lista de usuarios de acesso atualizada (se admin)
   if (isAdmin) {
     onSnapshot(collection(db,"logins"), snap => {
       usuariosAcesso = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -331,6 +340,39 @@ async function iniciarLeituras(){
   }
 }
 
+/* ---------- Restante do código original permanece intacto ---------- */
+
+/* ---------- Dentro de funções de ação, adicione checagem de permissões ---------- */
+/* Exemplo: excluir colaborador */
+async function removerColab(id) {
+  if (!isAdmin && !(usuarioLogado && usuarioLogado.acessos && usuarioLogado.acessos.excluir)) {
+    return alert('Você não tem permissão para excluir colaboradores.');
+  }
+  if (confirm("Excluir colaborador permanentemente?")) {
+    colaboradores = colaboradores.filter(c => c.id !== id);
+    pontos = pontos.filter(p => p.idColab !== id);
+    renderAll();
+    await deleteDoc(doc(db,"colaboradores", id));
+    const pts = await getDocs(collection(db,"pontos"));
+    for (let d of pts.docs) if (d.data().idColab === id) await deleteDoc(doc(db,"pontos", d.id));
+  }
+}
+
+/* Exemplo: registrar ponto (Entrada/Saída) pode ficar liberado para todos usuários */
+async function registrarPonto(idColab, tipo) {
+  const c = colaboradores.find(x => x.id === idColab);
+  if (!c) return alert("Colaborador não encontrado!");
+  const now = new Date();
+  const p = { id: Date.now().toString(), idColab, nome: c.nome, matricula: c.matricula, email: c.email, tipo, data: now.toLocaleDateString('pt-BR'), hora: now.toLocaleTimeString('pt-BR',{hour12:false}), horarioISO: now.toISOString() };
+  pontos.push(p);
+  renderEntradasSaidas();
+  await setDoc(doc(db,"pontos",p.id), p);
+}
+
+/* Para outros botões que alteram dados sensíveis, aplique a mesma lógica de checagem de permissões */
+
+/* ---------- Restante do código permanece igual ---------- */
+</script>
 /* ---------- RENDER GERAL ---------- */
 function renderAll(){
   renderColaboradores();
