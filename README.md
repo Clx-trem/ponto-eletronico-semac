@@ -32,6 +32,11 @@
   .hidden{display:none}
   .flex-row{display:flex;gap:8px;align-items:center}
   @media(max-width:720px){ header{flex-direction:column;align-items:flex-start} .controls{width:100%;justify-content:space-between} table{font-size:13px} }
+  /* pequenas melhorias para o modal de usuários */
+  #usuariosList { max-height:260px; overflow:auto; margin-bottom:10px; border:1px solid #eef2f6; border-radius:6px; padding:8px; background:#fafafa; }
+  .usr-row{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #f1f5f9}
+  /* ícone de engrenagem estilo simples */
+  .gear { width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:transparent;border:none;color:#fff;font-size:18px }
 </style>
 
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
@@ -62,6 +67,8 @@
       <button class="download" id="gerarRelatorioBtn">Relatório Horas (mês atual)</button>
       <button class="secondary" id="limparTodosPontosBtn">Limpar Pontos</button>
       <button class="secondary" id="limparTodosColabsBtn">Apagar Todos Colaboradores</button>
+      <!-- botão novo: gerenciar acessos (apenas admin verá) com ícone de engrenagem -->
+      <button class="gear secondary" id="gerenciarAcessosBtn" title="Gerenciar Logins" style="display:none">⚙️</button>
       <button class="secondary" id="logoutBtn">Sair</button>
     </div>
   </div>
@@ -110,6 +117,7 @@
   </table>
 </main>
 
+<!-- Modal Colaborador (mantido) -->
 <div id="colabModal" class="modal hidden">
   <div class="modal-content">
     <h3 id="colabModalTitle">Adicionar Colaborador</h3>
@@ -125,12 +133,33 @@
   </div>
 </div>
 
+<!-- Modal Relatório por Colaborador (mantido) -->
 <div id="relColabModal" class="modal hidden">
   <div class="modal-content" style="max-width:900px">
     <h3>Relatório por Colaborador (mês atual)</h3>
     <div id="relColabContent"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
       <button class="secondary" id="closeRelColab">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Usuarios (novo) -->
+<div id="usuariosModal" class="modal hidden">
+  <div class="modal-content" style="max-width:720px">
+    <h3>Gerenciar Logins</h3>
+
+    <div id="usuariosList"></div>
+
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+      <input id="novoUsuario" placeholder="Usuário" style="padding:8px;border-radius:6px;border:1px solid #e5e7eb">
+      <!-- senha com asteriscos -->
+      <input id="novaSenha" placeholder="Senha" type="password" style="padding:8px;border-radius:6px;border:1px solid #e5e7eb">
+      <button class="add" id="addUsuarioBtn">Adicionar</button>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="secondary" id="closeUsuarios">Fechar</button>
     </div>
   </div>
 </div>
@@ -157,6 +186,9 @@ const db = getFirestore(app);
 let colaboradores = [];
 let pontos = [];
 let colabEmEdicao = null;
+let usuariosAcesso = []; // lista de logins cadastrados
+let usuarioLogado = null;
+let isAdmin = false;
 
 /* UI elements */
 const loginScreen = document.getElementById('loginScreen');
@@ -164,29 +196,70 @@ const mainApp = document.getElementById('mainApp');
 const colabSelect = document.getElementById('colabSelect');
 const filtroAtual = (() => { const d = new Date(); const m = String(d.getMonth()+1).padStart(2,'0'); return `${d.getFullYear()}-${m}`; })(); // "YYYY-MM"
 
-/* credenciais fixas */
+/* credenciais fixas (admin principal) */
 const LOGIN_USER = 'CLX';
 const LOGIN_PASS = '02072007';
 
-/* ---------- LOGIN ---------- */
+/* ---------- LOGIN (agora valida também os usuarios da coleção 'logins') ---------- */
+async function buscarUsuariosAcesso() {
+  const uSnap = await getDocs(collection(db, "logins"));
+  usuariosAcesso = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return usuariosAcesso;
+}
+
+async function validarCredenciaisLocal(u,p) {
+  // se for admin fixo -> admin
+  if (u === LOGIN_USER && p === LOGIN_PASS) {
+    return { ok: true, admin: true, usuario: LOGIN_USER };
+  }
+  // carregar usuarios da coleção
+  const us = await buscarUsuariosAcesso();
+  const found = us.find(x => (x.usuario || '').toString() === u && (x.senha || '').toString() === p);
+  if (found) return { ok: true, admin: false, usuario: found.usuario };
+  return { ok: false };
+}
+
 document.getElementById('loginBtn').onclick = async () => {
   const u = document.getElementById('user').value.trim();
   const p = document.getElementById('pass').value.trim();
-  if (u === LOGIN_USER && p === LOGIN_PASS) {
+  const res = await validarCredenciaisLocal(u,p);
+  if (res.ok) {
+    usuarioLogado = res.usuario;
+    isAdmin = !!res.admin;
+    // esconder login e mostrar app
     loginScreen.style.display = 'none';
     mainApp.classList.remove('hidden');
-    if (document.getElementById('remember').checked) localStorage.setItem('autenticado','1');
+    if (document.getElementById('remember').checked) {
+      localStorage.setItem('autenticado','1');
+      localStorage.setItem('usuarioLogado', usuarioLogado);
+      localStorage.setItem('isAdmin', isAdmin ? '1' : '0');
+    }
+    // mostrar botão Gerenciar Acessos apenas para admin
+    document.getElementById('gerenciarAcessosBtn').style.display = isAdmin ? 'inline-block' : 'none';
     iniciarLeituras();
+    // carregar usuarios para o admin ver
+    if (isAdmin) carregarUsuariosUI();
   } else {
     document.getElementById('loginMsg').textContent = 'Usuário ou senha incorretos.';
   }
 };
+
 if (localStorage.getItem('autenticado') === '1') {
+  usuarioLogado = localStorage.getItem('usuarioLogado') || null;
+  isAdmin = localStorage.getItem('isAdmin') === '1';
   loginScreen.style.display = 'none';
   mainApp.classList.remove('hidden');
+  document.getElementById('gerenciarAcessosBtn').style.display = isAdmin ? 'inline-block' : 'none';
   iniciarLeituras();
+  if (isAdmin) carregarUsuariosUI();
 }
-document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('autenticado'); location.reload(); };
+
+document.getElementById('logoutBtn').onclick = () => { 
+  localStorage.removeItem('autenticado'); 
+  localStorage.removeItem('usuarioLogado'); 
+  localStorage.removeItem('isAdmin');
+  location.reload(); 
+};
 
 /* ---------- RELÓGIO ---------- */
 setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR',{hour12:false}); }, 1000);
@@ -213,6 +286,14 @@ async function iniciarLeituras(){
     calcularHoras();
     document.getElementById('status').textContent = "Online • Firebase";
   });
+
+  // manter lista de usuarios de acesso atualizada (se admin)
+  if (isAdmin) {
+    onSnapshot(collection(db,"logins"), snap => {
+      usuariosAcesso = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      carregarUsuariosUI();
+    });
+  }
 }
 
 /* ---------- RENDER GERAL ---------- */
@@ -229,10 +310,8 @@ document.getElementById('search').addEventListener('input', () => {
 });
 
 /* ---------- Obter próximo ID via transação (contagem contínua) ---------- */
-/* Usa documento meta/counters { lastId: number } para garantir contagem contínua */
 async function obterProximoIdNum() {
   const counterRef = doc(db, 'meta', 'counters');
-  // runTransaction garante que dois clientes concorrentes não atribuam o mesmo id
   const next = await runTransaction(db, async (tx) => {
     const snap = await tx.get(counterRef);
     let last = 0;
@@ -593,7 +672,7 @@ document.getElementById('verRelatorioColabBtn').onclick = () => {
   if (!nome) return alert('Selecione um colaborador');
   const rel = gerarRelatorioPorColaborador(nome);
   let html = `<p><b>Colaborador:</b> ${rel.nome}</p>`;
-  html += `<table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f3f4f6"><th>Semana (segunda)</th><th>Horas</th></tr></thead><tbody>`;
+  html += `<table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f3f4f6"><th>Semana (segunda)</th><th>Horas</th></tr></thead><tbody>`; 
   const semanas = Object.keys(rel.semanal).sort((a,b)=> { const pa=a.split('/').reverse().join('-'); const pb=b.split('/').reverse().join('-'); return new Date(pa)-new Date(pb); });
   if (semanas.length === 0) html += `<tr><td colspan="2">Sem registros no mês atual</td></tr>`;
   else semanas.forEach(sk => { const h = rel.semanal[sk]; html += `<tr><td>${sk}</td><td>${Math.floor(h)}h ${Math.round((h-Math.floor(h))*60)}m</td></tr>`; });
@@ -644,6 +723,86 @@ function inicializarUI(){
   popularColabSelect();
 }
 inicializarUI();
+
+/* =================== GESTÃO DE USUÁRIOS (Acessos) =================== */
+/* Mostrar modal de usuarios (apenas admin) */
+const gerenciarAcessosBtn = document.getElementById('gerenciarAcessosBtn');
+const usuariosModal = document.getElementById('usuariosModal');
+const usuariosList = document.getElementById('usuariosList');
+const novoUsuarioInput = document.getElementById('novoUsuario');
+const novaSenhaInput = document.getElementById('novaSenha');
+const addUsuarioBtn = document.getElementById('addUsuarioBtn');
+const closeUsuarios = document.getElementById('closeUsuarios');
+
+gerenciarAcessosBtn.onclick = () => {
+  if (!isAdmin) return alert('Apenas o administrador pode gerenciar acessos.');
+  usuariosModal.classList.remove('hidden');
+  carregarUsuariosUI();
+};
+closeUsuarios.onclick = () => usuariosModal.classList.add('hidden');
+
+/* carregar lista de usuarios na UI */
+async function carregarUsuariosUI() {
+  usuariosList.innerHTML = '';
+  const uSnap = await getDocs(collection(db, "logins"));
+  usuariosAcesso = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  if (usuariosAcesso.length === 0) {
+    usuariosList.innerHTML = '<div style="padding:8px;color:#6b7280">Nenhum usuário de acesso cadastrado.</div>';
+  } else {
+    usuariosAcesso.forEach(u => {
+      const div = document.createElement('div');
+      div.className = 'usr-row';
+      div.innerHTML = `<div>${u.usuario}</div>
+        <div style="display:flex;gap:6px">
+          <button class="secondary editUserBtn" data-id="${u.id}">Editar</button>
+          <button class="danger delUserBtn" data-id="${u.id}">Excluir</button>
+        </div>`;
+      usuariosList.appendChild(div);
+    });
+
+    // ligar eventos
+    usuariosList.querySelectorAll('.delUserBtn').forEach(btn => {
+      btn.onclick = async (ev) => {
+        const id = ev.currentTarget.getAttribute('data-id');
+        if (!confirm('Excluir este usuário de acesso?')) return;
+        await deleteDoc(doc(db, "logins", id));
+        carregarUsuariosUI();
+      };
+    });
+    usuariosList.querySelectorAll('.editUserBtn').forEach(btn => {
+      btn.onclick = (ev) => {
+        const id = ev.currentTarget.getAttribute('data-id');
+        const uobj = usuariosAcesso.find(x => x.id === id);
+        if (!uobj) return;
+        const novo = prompt('Novo nome de usuário:', uobj.usuario);
+        if (novo === null) return;
+        const novaSenha = prompt('Nova senha (vazio = manter):', '');
+        (async () => {
+          const ref = doc(db, "logins", id);
+          const obj = { usuario: novo };
+          if (novaSenha && novaSenha.trim().length > 0) obj.senha = novaSenha.trim();
+          await setDoc(ref, obj, { merge: true });
+          carregarUsuariosUI();
+        })();
+      };
+    });
+  }
+}
+
+/* adicionar novo usuario (apenas admin) */
+addUsuarioBtn.onclick = async () => {
+  if (!isAdmin) return alert('Apenas o administrador pode adicionar usuários.');
+  const usuario = novoUsuarioInput.value.trim();
+  const senha = novaSenhaInput.value.trim();
+  if (!usuario || !senha) return alert('Informe usuário e senha.');
+  // cria doc com id automático
+  const newId = Date.now().toString();
+  await setDoc(doc(db, "logins", newId), { usuario, senha });
+  novoUsuarioInput.value = '';
+  novaSenhaInput.value = '';
+  carregarUsuariosUI();
+};
 
 </script>
 </body>
