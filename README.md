@@ -880,6 +880,95 @@ limparAcessosBtn.onclick = async () => {
   alert('Logs de acessos limpos.');
   carregarAcessosUI();
 };
+/* ---------- CONTROLE DE PERMISSÕES ---------- */
+// Definir permissões por usuário (exemplo: CLX pode tudo)
+const permissoesUsuarios = {
+  "CLX": [
+    "baterPonto",
+    "verTabelaColaboradores",
+    "editarCadastro",
+    "excluirColaborador",
+    "cadastrarColaborador",
+    "gerarRelatorios",
+    "exportarExcel",
+    "registrarEntrada",
+    "registrarSaida"
+  ],
+  // outros usuários podem ter permissões limitadas
+  "OutroUsuario": [
+    "verTabelaColaboradores",
+    "registrarEntrada",
+    "registrarSaida"
+  ]
+};
+
+// Função para verificar permissão antes de executar
+function temPermissao(acao) {
+  const usuarioLogado = currentUserName; // variável que identifica o login atual
+  const permissoes = permissoesUsuarios[usuarioLogado] || [];
+  if (!permissoes.includes(acao)) {
+    alert("Você não tem permissão para realizar esta ação.");
+    return false;
+  }
+  return true;
+}
+
+/* ---------- EXEMPLOS DE USO ---------- */
+// Antes de qualquer ação importante, chame temPermissao
+
+// Bater ponto
+const baterPontoBtn = document.getElementById('baterPontoBtn');
+if (baterPontoBtn) {
+  baterPontoBtn.onclick = () => {
+    if (!temPermissao("baterPonto")) return;
+    // Aqui vai seu código original de bater ponto
+  };
+}
+
+// Registrar entrada
+const registrarEntradaBtn = document.getElementById('registrarEntradaBtn');
+if (registrarEntradaBtn) {
+  registrarEntradaBtn.onclick = () => {
+    if (!temPermissao("registrarEntrada")) return;
+    // código original de registrar entrada
+  };
+}
+
+// Registrar saída
+const registrarSaidaBtn = document.getElementById('registrarSaidaBtn');
+if (registrarSaidaBtn) {
+  registrarSaidaBtn.onclick = () => {
+    if (!temPermissao("registrarSaida")) return;
+    // código original de registrar saída
+  };
+}
+
+// Gerar relatórios
+const gerarRelatorioBtnPerm = document.getElementById('gerarRelatorioBtn');
+if (gerarRelatorioBtnPerm) {
+  gerarRelatorioBtnPerm.onclick = (ev) => {
+    if (!temPermissao("gerarRelatorios")) return;
+    // código original de gerar relatório
+  };
+}
+
+// Exportar Excel
+const exportarExcelBtn = document.getElementById('baixarBtn');
+if (exportarExcelBtn) {
+  exportarExcelBtn.onclick = () => {
+    if (!temPermissao("exportarExcel")) return;
+    // código original de exportar Excel
+  };
+}
+
+// Editar cadastro
+// Ao chamar função de editar colaborador, coloque temPermissao("editarCadastro") antes
+
+// Excluir colaborador
+// Ao chamar função de excluir colaborador, coloque temPermissao("excluirColaborador") antes
+
+// Cadastrar novo colaborador
+// Ao chamar função de cadastro, coloque temPermissao("cadastrarColaborador") antes
 
 </script>
 </body>
