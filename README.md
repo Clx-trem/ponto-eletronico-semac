@@ -960,7 +960,6 @@ if (exportarExcelBtn) {
     // código original de exportar Excel
   };
 }
-
 // Editar cadastro
 // Ao chamar função de editar colaborador, coloque temPermissao("editarCadastro") antes
 
@@ -969,7 +968,6 @@ if (exportarExcelBtn) {
 
 // Cadastrar novo colaborador
 // Ao chamar função de cadastro, coloque temPermissao("cadastrarColaborador") antes
-
 </script>
 </body>
 </html>
