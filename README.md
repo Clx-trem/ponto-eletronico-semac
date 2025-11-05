@@ -822,7 +822,6 @@ async function carregarUsuariosUI() {
     });
   }
 }
-
 /* adicionar novo usuario (apenas admin) */
 addUsuarioBtn.onclick = async () => {
   if (!isAdmin) return alert('Apenas o administrador pode adicionar usuários.');
@@ -868,7 +867,6 @@ async function carregarAcessosUI() {
     acessosList.appendChild(div);
   });
 }
-
 /* limpar logs de acessos (apenas admin) */
 limparAcessosBtn.onclick = async () => {
   if (!isAdmin) return alert('Apenas admin pode limpar logs.');
