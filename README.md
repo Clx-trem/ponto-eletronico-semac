@@ -731,22 +731,6 @@ document.getElementById('exportRelatorioColabBtn').onclick = () => {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ws), 'Relatorio_Colaborador');
   XLSX.writeFile(wb, `Relatorio_${nome.replace(/\s+/g,'_')}_${filtroAtual}.xlsx`);
 };
-
-/* ---------- Auto saída 20:00 ---------- */
-function baterSaidaAutomatica(){
-  const agora = new Date(); const h = agora.getHours(), m = agora.getMinutes();
-  if (h === 20 && m === 0) {
-    colaboradores.forEach(c => {
-      const hoje = agora.toLocaleDateString('pt-BR');
-      const pontosHoje = pontos.filter(p => p.idColab === c.id && p.data === hoje);
-      const temEntrada = pontosHoje.some(p => p.tipo === 'Entrada');
-      const temSaida = pontosHoje.some(p => p.tipo === 'Saída');
-      if (temEntrada && !temSaida) registrarPonto(c.id, 'Saída');
-    });
-  }
-}
-setInterval(baterSaidaAutomatica, 60000);
-
 /* ---------- popular select ---------- */
 function popularColabSelect() {
   colabSelect.innerHTML = '<option value="">-- selecione --</option>';
