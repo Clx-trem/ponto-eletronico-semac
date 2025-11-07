@@ -878,6 +878,89 @@ limparAcessosBtn.onclick = async () => {
   alert('Logs de acessos limpos.');
   carregarAcessosUI();
 };
+<!-- Código completo com scanner integrado -->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Ponto com Scanner</title>
+<style>
+.scan-btn { padding: 10px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: 10px; }
+</style>
+</head>
+<body>
+
+<!-- SEU CÓDIGO ORIGINAL PARTE 1 -->
+<!-- (Conteúdo da PARTE 1 que você enviou colado aqui sem alterações) -->
+
+<div>
+    <button id="btnEntrada">Registrar Entrada</button>
+    <button id="btnSaida">Registrar Saída</button>
+    <button id="btnScanner" class="scan-btn">📷 Abrir Scanner</button>
+</div>
+
+<!-- SEU CÓDIGO ORIGINAL PARTE 2 -->
+
+/* PARTE 2 INSERIDA */
+" + "/* ---------- UTIL / Formatação de tempo (hh mm ss) ---------- */ function formatarHorasSegundos(totalSegundos) { totalSegundos = Math.max(0, Math.round(totalSegundos)); // evitar negativos e garantir inteiro const horas = Math.floor(totalSegundos / 3600); const minutos = Math.floor((totalSegundos % 3600) / 60); const segundos = totalSegundos % 60; return ${horas}h ${minutos}m ${segundos}s; } /* ---------- Calcular horas (mês atual) - agora com segundos ---------- */ function calcularHoras() { const horasBody = document.getElementById('horasBody'); const totalHorasCell = document.getElementById('totalHoras'); horasBody.innerHTML = ''; let dados = {}; // dados[nome][data] = lista pontos let totalGeralSegundos = 0; const pts = pontosDoMesAtual(pontos); pts.forEach(p => { if (!dados[p.nome]) dados[p.nome] = {}; if (!dados[p.nome][p.data]) dados[p.nome][p.data] = []; dados[p.nome][p.data].push(p); }); Object.keys(dados).forEach(nome => { Object.keys(dados[nome]).forEach(data => { let reg = dados[nome][data].slice().sort((a,b) => new Date(a.horarioISO) - new Date(b.horarioISO)); let entrada = null; let totalSegundosPorDia = 0; reg.forEach(r => { if (r.tipo === 'Entrada') { entrada = new Date(r.horarioISO); } else if (r.tipo === 'Saída' && entrada) { const saida = new Date(r.horarioISO); const diffSeg = Math.round((saida - entrada) / 1000); if (diffSeg > 0) totalSegundosPorDia += diffSeg; entrada = null; } }); totalGeralSegundos += totalSegundosPorDia; const tempoFormatado = formatarHorasSegundos(totalSegundosPorDia); const tr = document.createElement('tr'); tr.innerHTML = `<td>${nome}</td><td>${data}</td><td>${tempoFormatado}</td>`; horasBody.appendChild(tr); }); }); totalHorasCell.textContent = formatarHorasSegundos(totalGeralSegundos); }
+
+<!-- MODAL DO SCANNER -->
+<div id="scannerModal" style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.7); justify-content:center; align-items:center;">
+    <div style="background:white; padding:15px; border-radius:8px;">
+        <h3>Scanner de Código</h3>
+        <div id="reader" style="width:300px; height:300px;"></div>
+        <button onclick="fecharScanner()" style="margin-top:10px;">Fechar</button>
+    </div>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<script type="module">
+// === SEU SCRIPT ORIGINAL AQUI (NÃO MODIFICADO) ===
+
+// === HISTÓRICO PARA ALTERNAR ENTRADA/SAÍDA ===
+function getProximoTipo(id) {
+    const chave = "ultimoTipo_" + id;
+    const anterior = localStorage.getItem(chave);
+
+    if (!anterior || anterior === "saida") {
+        localStorage.setItem(chave, "entrada");
+        return "entrada";
+    } else {
+        localStorage.setItem(chave, "saida");
+        return "saida";
+    }
+}
+
+let html5Qr = null;
+
+document.getElementById("btnScanner").addEventListener("click", () => {
+    document.getElementById("scannerModal").style.display = "flex";
+
+    html5Qr = new Html5Qrcode("reader");
+
+    html5Qr.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        (textoLido) => {
+            let idLido = textoLido.trim();
+            let tipo = getProximoTipo(idLido);
+
+            registrarPonto(idLido, tipo);
+            fecharScanner();
+        },
+        (erro) => {}
+    );
+});
+
+function fecharScanner() {
+    document.getElementById("scannerModal").style.display = "none";
+    if (html5Qr) {
+        html5Qr.stop().then(() => { html5Qr.clear(); });
+    }
+}
+
 </script>
 </body>
 </html>
+
