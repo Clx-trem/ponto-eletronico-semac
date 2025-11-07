@@ -382,19 +382,11 @@ function renderColaboradores(filtro = '') {
         <td>
           <button class="add btnEntrada">Entrada</button>
           <button class="secondary btnSaida">Saída</button>
-          <button class="secondary scanBtn">Scanner</button>
           <button class="secondary editBtn">Editar</button>
           <button class="danger delBtn">Excluir</button>
         </td>`;
-
       tr.querySelector('.btnEntrada').onclick = () => registrarPonto(c.id, 'Entrada');
       tr.querySelector('.btnSaida').onclick = () => registrarPonto(c.id, 'Saída');
-
-      /* BOTÃO SCANNER INDIVIDUAL */
-      tr.querySelector('.scanBtn').onclick = () => {
-        iniciarScannerPara(c.matricula);
-      };
-
       tr.querySelector('.editBtn').onclick = () => abrirModalEditar(c);
       tr.querySelector('.delBtn').onclick = () => removerColab(c.id);
       body.appendChild(tr);
@@ -886,60 +878,94 @@ limparAcessosBtn.onclick = async () => {
   alert('Logs de acessos limpos.');
   carregarAcessosUI();
 };
-  // === HISTÓRICO PARA ENTRAR/SAIR AUTOMÁTICO ===
-function getProximoTipo(id) {
-    const chave = "ultimoTipo_" + id;
-    const anterior = localStorage.getItem(chave);
+/* ---------- CONTROLE DE PERMISSÕES ---------- */
+// Definir permissões por usuário (exemplo: CLX pode tudo)
+const permissoesUsuarios = {
+  "CLX": [
+    "baterPonto",
+    "verTabelaColaboradores",
+    "editarCadastro",
+    "excluirColaborador",
+    "cadastrarColaborador",
+    "gerarRelatorios",
+    "exportarExcel",
+    "registrarEntrada",
+    "registrarSaida"
+  ],
+  // outros usuários podem ter permissões limitadas
+  "OutroUsuario": [
+    "verTabelaColaboradores",
+    "registrarEntrada",
+    "registrarSaida"
+  ]
+};
 
-    if (!anterior || anterior === "saida") {
-        localStorage.setItem(chave, "entrada");
-        return "entrada";
-    } else {
-        localStorage.setItem(chave, "saida");
-        return "saida";
-    }
+// Função para verificar permissão antes de executar
+function temPermissao(acao) {
+  const usuarioLogado = currentUserName; // variável que identifica o login atual
+  const permissoes = permissoesUsuarios[usuarioLogado] || [];
+  if (!permissoes.includes(acao)) {
+    alert("Você não tem permissão para realizar esta ação.");
+    return false;
+  }
+  return true;
 }
 
-let html5Qr = null;
+/* ---------- EXEMPLOS DE USO ---------- */
+// Antes de qualquer ação importante, chame temPermissao
 
-document.getElementById("btnScanner").addEventListener("click", () => {
-    document.getElementById("scannerModal").style.display = "flex";
-
-    html5Qr = new Html5Qrcode("reader");
-
-    html5Qr.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        (textoLido) => {
-            let idLido = textoLido.trim();
-            let tipo = getProximoTipo(idLido);
-
-            registrarPonto(idLido, tipo);
-            fecharScanner();
-        },
-        (erro) => {}
-    );
-});
-
-function fecharScanner() {
-    document.getElementById("scannerModal").style.display = "none";
-    if (html5Qr) {
-        html5Qr.stop().then(() => { html5Qr.clear(); });
-    }
+// Bater ponto
+const baterPontoBtn = document.getElementById('baterPontoBtn');
+if (baterPontoBtn) {
+  baterPontoBtn.onclick = () => {
+    if (!temPermissao("baterPonto")) return;
+    // Aqui vai seu código original de bater ponto
+  };
 }
 
+// Registrar entrada
+const registrarEntradaBtn = document.getElementById('registrarEntradaBtn');
+if (registrarEntradaBtn) {
+  registrarEntradaBtn.onclick = () => {
+    if (!temPermissao("registrarEntrada")) return;
+    // código original de registrar entrada
+  };
+}
+
+// Registrar saída
+const registrarSaidaBtn = document.getElementById('registrarSaidaBtn');
+if (registrarSaidaBtn) {
+  registrarSaidaBtn.onclick = () => {
+    if (!temPermissao("registrarSaida")) return;
+    // código original de registrar saída
+  };
+}
+
+// Gerar relatórios
+const gerarRelatorioBtnPerm = document.getElementById('gerarRelatorioBtn');
+if (gerarRelatorioBtnPerm) {
+  gerarRelatorioBtnPerm.onclick = (ev) => {
+    if (!temPermissao("gerarRelatorios")) return;
+    // código original de gerar relatório
+  };
+}
+
+// Exportar Excel
+const exportarExcelBtn = document.getElementById('baixarBtn');
+if (exportarExcelBtn) {
+  exportarExcelBtn.onclick = () => {
+    if (!temPermissao("exportarExcel")) return;
+    // código original de exportar Excel
+  };
+}
+// Editar cadastro
+// Ao chamar função de editar colaborador, coloque temPermissao("editarCadastro") antes
+
+// Excluir colaborador
+// Ao chamar função de excluir colaborador, coloque temPermissao("excluirColaborador") antes
+
+// Cadastrar novo colaborador
+// Ao chamar função de cadastro, coloque temPermissao("cadastrarColaborador") antes
 </script>
-<!-- MODAL DO SCANNER -->
-<div id="scannerModal" 
- style="display:none; position: fixed; top:0; left:0; width:100%; height:100%;
-        background: rgba(0,0,0,0.7); justify-content:center; align-items:center;">
-    <div style="background:white; padding:15px; border-radius:8px;">
-        <h3>Scanner de Código</h3>
-        <div id="reader" style="width:300px; height:300px;"></div>
-        <button onclick="fecharScanner()" style="margin-top:10px;">Fechar</button>
-    </div>
-</div>
-
 </body>
 </html>
-
