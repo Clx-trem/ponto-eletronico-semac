@@ -878,6 +878,7 @@ limparAcessosBtn.onclick = async () => {
   alert('Logs de acessos limpos.');
   carregarAcessosUI();
 };
+  
 <!-- Código completo com scanner integrado -->
 <html lang="pt-BR">
 <head>
@@ -889,10 +890,8 @@ limparAcessosBtn.onclick = async () => {
 </style>
 </head>
 <body>
-
 <!-- SEU CÓDIGO ORIGINAL PARTE 1 -->
 <!-- (Conteúdo da PARTE 1 que você enviou colado aqui sem alterações) -->
-
 <div>
     <button id="btnEntrada">Registrar Entrada</button>
     <button id="btnSaida">Registrar Saída</button>
