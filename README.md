@@ -901,9 +901,6 @@ limparAcessosBtn.onclick = async () => {
 
 <!-- SEU CÓDIGO ORIGINAL PARTE 2 -->
 
-/* PARTE 2 INSERIDA */
-" + "/* ---------- UTIL / Formatação de tempo (hh mm ss) ---------- */ function formatarHorasSegundos(totalSegundos) { totalSegundos = Math.max(0, Math.round(totalSegundos)); // evitar negativos e garantir inteiro const horas = Math.floor(totalSegundos / 3600); const minutos = Math.floor((totalSegundos % 3600) / 60); const segundos = totalSegundos % 60; return ${horas}h ${minutos}m ${segundos}s; } /* ---------- Calcular horas (mês atual) - agora com segundos ---------- */ function calcularHoras() { const horasBody = document.getElementById('horasBody'); const totalHorasCell = document.getElementById('totalHoras'); horasBody.innerHTML = ''; let dados = {}; // dados[nome][data] = lista pontos let totalGeralSegundos = 0; const pts = pontosDoMesAtual(pontos); pts.forEach(p => { if (!dados[p.nome]) dados[p.nome] = {}; if (!dados[p.nome][p.data]) dados[p.nome][p.data] = []; dados[p.nome][p.data].push(p); }); Object.keys(dados).forEach(nome => { Object.keys(dados[nome]).forEach(data => { let reg = dados[nome][data].slice().sort((a,b) => new Date(a.horarioISO) - new Date(b.horarioISO)); let entrada = null; let totalSegundosPorDia = 0; reg.forEach(r => { if (r.tipo === 'Entrada') { entrada = new Date(r.horarioISO); } else if (r.tipo === 'Saída' && entrada) { const saida = new Date(r.horarioISO); const diffSeg = Math.round((saida - entrada) / 1000); if (diffSeg > 0) totalSegundosPorDia += diffSeg; entrada = null; } }); totalGeralSegundos += totalSegundosPorDia; const tempoFormatado = formatarHorasSegundos(totalSegundosPorDia); const tr = document.createElement('tr'); tr.innerHTML = `<td>${nome}</td><td>${data}</td><td>${tempoFormatado}</td>`; horasBody.appendChild(tr); }); }); totalHorasCell.textContent = formatarHorasSegundos(totalGeralSegundos); }
-
 <!-- MODAL DO SCANNER -->
 <div id="scannerModal" style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.7); justify-content:center; align-items:center;">
     <div style="background:white; padding:15px; border-radius:8px;">
@@ -961,6 +958,7 @@ function fecharScanner() {
 }
 
 </script>
+
 </body>
 </html>
 
