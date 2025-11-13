@@ -150,9 +150,7 @@
 <div id="usuariosModal" class="modal hidden">
   <div class="modal-content" style="max-width:720px">
     <h3>Gerenciar Logins</h3>
-
     <div id="usuariosList"></div>
-
     <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
       <input id="novoUsuario" placeholder="Usuário" style="padding:8px;border-radius:6px;border:1px solid #e5e7eb">
       <!-- senha com asteriscos -->
@@ -160,7 +158,6 @@
       <button class="add" id="addUsuarioBtn">Adicionar</button>
       <button class="secondary" id="verAcessosBtn" style="margin-left:8px">Ver Acessos</button>
     </div>
-
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
       <button class="secondary" id="closeUsuarios">Fechar</button>
       <button class="danger" id="limparAcessosBtn">Limpar Logs Acessos</button>
