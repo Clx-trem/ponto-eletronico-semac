@@ -957,12 +957,16 @@ if (exportarExcelBtn) {
 }
 // Editar cadastro
 // Ao chamar função de editar colaborador, coloque temPermissao("editarCadastro") antes
-
 // Excluir colaborador
 // Ao chamar função de excluir colaborador, coloque temPermissao("excluirColaborador") antes
-
 // Cadastrar novo colaborador
 // Ao chamar função de cadastro, coloque temPermissao("cadastrarColaborador") antes
 </script>
+<body>
+    <!-- TODO O SEU SITE AQUI -->
+
+    <footer style="text-align:center; margin-top:20px; padding:10px; font-size:14px; color:#555;">
+        Criado por CLX
+    </footer>
+
 </body>
-</html>
